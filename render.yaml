@@ -1,0 +1,16 @@
+# Blueprint do Render — site estático das eleições CE/BA
+# (eleicoes.gestorcnt.com). Publicação: push neste repositório;
+# o Render reconstrói e invalida o CDN sozinho a cada deploy.
+services:
+  - type: web
+    runtime: static
+    name: eleicoes-ce-ba
+    buildCommand: ""
+    staticPublishPath: .
+    headers:
+      - path: /d/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache

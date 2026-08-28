@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eleições CE e BA — consulta por cargo, cidade e seção</title>
+<meta name="description" content="Consulta pública da votação de 2020,
+ 2022 e 2024 no Ceará e na Bahia, por cargo, município, local de votação
+ e seção eleitoral. Dados abertos do TSE.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet"
+ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+ crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+ crossorigin="anonymous"></script>
+<style>
+:root{
+  --fundo:#F4F5FA; --cartao:#FFFFFF; --tinta:#1A2033; --tinta2:#5B6478;
+  --linha:#E7EAF3; --lateral:#151A28; --lateral-tinta:#B7BFD4;
+  --acento1:#6366F1; --acento2:#8B5CF6; --acento-suave:#EEF0FF;
+  --sombra:0 1px 2px rgba(16,24,40,.06), 0 4px 16px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fundo);color:var(--tinta);
+  font:14px/1.45 "Segoe UI", system-ui, -apple-system, Arial, sans-serif}
+.app{display:flex;min-height:100vh}
+.lado{flex:0 0 235px;background:var(--lateral);color:var(--lateral-tinta);
+  padding:18px 14px;display:flex;flex-direction:column;gap:6px}
+.marca{color:#FFF;font-size:17px;font-weight:700;margin:0 4px 2px}
+.marca small{display:block;font-size:11px;font-weight:400;
+  color:var(--lateral-tinta)}
+.lado .fixos{display:flex;gap:8px;margin:10px 0 14px}
+.lado select{flex:1 1 50%;background:#1E2436;color:#FFF;
+  border:1px solid #2A3149;border-radius:8px;padding:7px 8px;
+  font:600 13px "Segoe UI",sans-serif}
+.menu button{display:block;width:100%;margin:0 0 6px;padding:10px 12px;
+  text-align:left;font:600 12.5px "Segoe UI",sans-serif;
+  color:var(--lateral-tinta);background:transparent;border:0;
+  border-radius:10px;cursor:pointer;transition:background .15s}
+.menu button:hover{background:#1E2436;color:#FFF}
+.menu button.ativo{color:#FFF;
+  background:linear-gradient(135deg,var(--acento1),var(--acento2));
+  box-shadow:0 4px 14px rgba(99,102,241,.35)}
+.rodape-lado{margin-top:auto;font-size:11px;color:#6B7490;padding:6px 4px}
+.rodape-lado a{color:#8B93AD}
+.conteudo{flex:1 1 auto;min-width:0;padding:20px 24px}
+.topo{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.topo h1{margin:0;font-size:20px;font-weight:700}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--cartao);border:1px solid var(--linha);
+  border-radius:999px;padding:4px 12px;font-size:12px;color:var(--tinta2);
+  box-shadow:var(--sombra)}
+.chip b{color:var(--tinta)}
+.cartao{background:var(--cartao);border-radius:14px;box-shadow:var(--sombra);
+  padding:14px 16px;margin-bottom:14px}
+.filtros{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.filtros label{display:block;font-size:11px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;color:var(--tinta2);
+  margin-bottom:4px}
+.filtros input,.filtros select{font:14px "Segoe UI",sans-serif;
+  color:var(--tinta);background:#FFF;border:1px solid #D6DAE6;
+  border-radius:9px;padding:7px 10px;min-width:120px;outline:none}
+.filtros input:focus,.filtros select:focus{border-color:var(--acento1);
+  box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.busca{min-width:230px}
+.botao{font:600 13px "Segoe UI",sans-serif;color:#FFF;border:0;
+  border-radius:9px;padding:9px 16px;cursor:pointer;
+  background:linear-gradient(135deg,var(--acento1),var(--acento2));
+  box-shadow:0 2px 8px rgba(99,102,241,.3)}
+.botao:hover{filter:brightness(1.07)}
+.botao.claro{background:#FFF;color:var(--tinta);border:1px solid #D6DAE6;
+  box-shadow:none}
+.botao.claro:hover{background:var(--acento-suave);filter:none}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:700;letter-spacing:.4px;
+  text-transform:uppercase;color:var(--tinta2);text-align:left;
+  padding:8px 10px;border-bottom:1px solid var(--linha);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--linha);font-size:13.5px}
+tbody tr:hover td{background:var(--acento-suave)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.c-bar{width:16%;min-width:90px}
+.barra{height:9px;border-radius:6px;min-width:2px;
+  background:linear-gradient(90deg,var(--acento1),var(--acento2))}
+.dois{display:flex;gap:14px;align-items:flex-start}
+.dois>.col-a{flex:1.35 1 0;min-width:0}
+.dois>.col-b{flex:1 1 0;min-width:0}
+.kpi{font-size:38px;font-weight:800;text-align:right;
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(135deg,var(--acento1),var(--acento2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi-rotulo{font-size:11px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--tinta2);text-align:right}
+.aviso{background:#FFF7E8;border:1px solid #F4D9A6;color:#8A6116;
+  border-radius:9px;padding:8px 12px;font-size:13px;margin:10px 0}
+.carregando{display:flex;align-items:center;gap:10px;color:var(--tinta2);
+  padding:26px 8px}
+.carregando::before{content:"";width:18px;height:18px;border-radius:50%;
+  border:3px solid var(--linha);border-top-color:var(--acento1);
+  animation:gira .8s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.carregando::before{animation:none}}
+.lista-cand{max-height:320px;overflow-y:auto;border:1px solid var(--linha);
+  border-radius:10px;margin-top:10px}
+.sel-info{margin:8px 0 0;font-size:13px;color:var(--tinta2)}
+.sel-info b{color:var(--tinta)}
+.oculto{display:none !important}
+.rolagem{overflow-x:auto}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--acento1);
+  cursor:pointer}
+.situ{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;
+  white-space:nowrap}
+.situ-eleito{background:#E7F6EC;color:#177A3D}
+.situ-outro{background:#EFF1F6;color:#5B6478}
+.mapa-caixa{height:68vh;min-height:420px;border-radius:12px;
+  overflow:hidden}
+.modo-botoes{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.modo-botoes button{font:600 12px "Segoe UI",sans-serif;
+  border:1px solid #D6DAE6;background:#FFF;color:var(--tinta2);
+  border-radius:999px;padding:6px 14px;cursor:pointer}
+.modo-botoes button.ativo{color:#FFF;border:0;
+  background:linear-gradient(135deg,var(--acento1),var(--acento2))}
+.leaflet-container{font:12px "Segoe UI",sans-serif}
+.rodape{color:var(--tinta2);font-size:12px;padding:6px 2px 20px}
+.rodape a{color:var(--acento1)}
+@media (max-width:820px){
+  .app{flex-direction:column}.lado{flex:none;width:100%}
+  .dois{flex-direction:column}.dois>.col-a,.dois>.col-b{width:100%}
+  .conteudo{padding:14px}
+}
+@media print{.lado,.filtros,.nao-imprime{display:none!important}
+  body{background:#FFF}.cartao{box-shadow:none;border:1px solid #DDD}}
+</style></head><body><div class="app">
+<div class="lado nao-imprime">
+<p class="marca">Eleições CE · BA<small>consulta pública — dados abertos
+do TSE</small></p>
+<div class="fixos">
+<select id="f-ano" title="Pleito"></select>
+<select id="f-uf" title="UF"></select>
+</div>
+<div class="menu" id="menu-paginas"></div>
+<div class="rodape-lado">Fonte: TSE — Dados Abertos<br>
+Extração: <span id="r-extracao">—</span></div>
+</div>
+<div class="conteudo">
+<div class="topo">
+<h1 id="pg-titulo">—</h1>
+<div class="chips"><span class="chip">Fonte: <b>TSE — Dados Abertos</b>
+</span><span class="chip">Extração: <b id="c-extracao">—</b></span></div>
+</div>
+<div class="cartao nao-imprime">
+<div class="filtros">
+<div id="c-turno-caixa" class="oculto"><label>Turno</label>
+<select id="c-turno"></select></div>
+<div id="c-mun-caixa"><label>Município</label>
+<input type="text" id="c-mun-busca" class="busca"
+ placeholder="digite p/ filtrar…" style="display:block;margin-bottom:4px">
+<select id="c-mun" style="display:block;min-width:230px"></select></div>
+<div id="c-cand-caixa" class="oculto"><label>Candidato (nome ou nº)</label>
+<input type="text" id="c-cand-busca" class="busca"
+ placeholder="digite para buscar"></div>
+<div><button class="botao claro" data-acao="exportar">Exportar CSV
+</button></div>
+<div><button class="botao claro" data-acao="imprimir">Imprimir</button>
+</div>
+</div>
+<div id="c-cand-lista-caixa" class="oculto">
+<div class="lista-cand rolagem" id="c-cand-lista"></div>
+<p class="sel-info">Selecionados: <b id="c-sel-n">0</b> &nbsp;
+<button class="botao claro" data-acao="limpar-sel"
+ style="padding:3px 10px;font-size:12px">Limpar</button></p>
+</div>
+</div>
+<div class="aviso oculto" id="pg-aviso"></div>
+<div class="dois">
+<div class="col-a cartao rolagem" id="pg-tabela"></div>
+<div class="col-b" id="pg-lateral"></div>
+</div>
+<p class="rodape">Dados abertos do Tribunal Superior Eleitoral
+(<a href="https://dadosabertos.tse.jus.br/" target="_blank"
+rel="noopener">dadosabertos.tse.jus.br</a>), eleições ordinárias.
+Percentuais sobre votos apurados no recorte exibido. O voto é secreto:
+os números são agregados por seção e não permitem identificar como
+qualquer pessoa votou.</p>
+</div></div>
+<script src="app.js?v=1317ae15"></script>
+</body></html>
