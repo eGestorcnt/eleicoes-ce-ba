@@ -771,8 +771,13 @@ function desenhaMapa(sc){
         linhasPop.push(esc(c ? c.n : sq) + ": " + num(g.porSq[sq] || 0));
       });
     }
-    marca.bindPopup(linhasPop.filter(function(x){ return x; })
-      .join("<br>"));
+    var conteudo = linhasPop.filter(function(x){ return x; })
+      .join("<br>");
+    // hover mostra tudo sem clique; o clique (popup) continua valendo
+    // para telas de toque, onde hover não existe
+    marca.bindTooltip(conteudo, {sticky: true, direction: "top",
+                                 opacity: 0.96});
+    marca.bindPopup(conteudo);
     marca.addTo(mapa);
   });
   mapa.fitBounds(limites, {padding: [30, 30]});
