@@ -1,10 +1,10 @@
 <!DOCTYPE html><html lang="pt-BR"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Eleições CE e BA — consulta por cargo, cidade e seção</title>
+<title>Eleições BA · CE — consulta por cargo, cidade e seção</title>
 <meta name="description" content="Consulta pública da votação de 2020,
- 2022 e 2024 no Ceará e na Bahia, por cargo, município, local de votação
- e seção eleitoral. Dados abertos do TSE.">
+ 2022 e 2024 (BA · CE) por cargo, município, local de votação e seção
+ eleitoral. Dados abertos do TSE.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet"
  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -115,6 +115,16 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--acento1);
 .mapa-caixa{height:68vh;min-height:420px;border-radius:12px;
   overflow:hidden}
 .modo-botoes{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.mapa-caixa:fullscreen{height:100vh;width:100vw;border-radius:0}
+.mapa-caixa.tela-cheia{position:fixed;inset:0;z-index:9000;
+  height:100vh;width:100vw;border-radius:0}
+#minimapa-pop{position:fixed;z-index:9500;display:none;width:340px;
+  background:var(--cartao);border-radius:12px;box-shadow:var(--sombra);
+  padding:10px;pointer-events:none}
+#minimapa-pop .mm-titulo{font-weight:700;font-size:12.5px;
+  margin-bottom:6px}
+#minimapa-mapa{height:230px;border-radius:8px}
+.minimapa-alvo{cursor:help;border-bottom:1px dotted #B7BFD4}
 .modo-botoes button{font:600 12px "Segoe UI",sans-serif;
   border:1px solid #D6DAE6;background:#FFF;color:var(--tinta2);
   border-radius:999px;padding:6px 14px;cursor:pointer}
@@ -132,7 +142,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--acento1);
   body{background:#FFF}.cartao{box-shadow:none;border:1px solid #DDD}}
 </style></head><body><div class="app">
 <div class="lado nao-imprime">
-<p class="marca">Eleições CE · BA<small>consulta pública — dados abertos
+<p class="marca">Eleições BA · CE<small>consulta pública — dados abertos
 do TSE</small></p>
 <div class="fixos">
 <select id="f-ano" title="Pleito"></select>
@@ -183,5 +193,5 @@ Percentuais sobre votos apurados no recorte exibido. O voto é secreto:
 os números são agregados por seção e não permitem identificar como
 qualquer pessoa votou.</p>
 </div></div>
-<script src="app.js?v=4e2e0336"></script>
+<script src="app.js?v=92fa7eff"></script>
 </body></html>

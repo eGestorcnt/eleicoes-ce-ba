@@ -16,6 +16,23 @@ var mapaLeaflet = null;      // instância viva do Leaflet
 var CORES_RANKING = ["#6366F1", "#F59E0B", "#10B981", "#EF4444",
                      "#0EA5E9", "#8B5CF6"];
 
+// ao entrar/sair da tela inteira o container muda de tamanho — o
+// Leaflet precisa remedir, senão os tiles ficam pela metade
+document.addEventListener("fullscreenchange", function(){
+  if(mapaLeaflet){
+    setTimeout(function(){ mapaLeaflet.invalidateSize(); }, 120);
+  }
+});
+document.addEventListener("keydown", function(ev){
+  if(ev.key !== "Escape") return;
+  var cxm = document.getElementById("mapa-caixa");
+  if(cxm && cxm.classList.contains("tela-cheia")){
+    cxm.classList.remove("tela-cheia");
+    if(mapaLeaflet)
+      setTimeout(function(){ mapaLeaflet.invalidateSize(); }, 120);
+  }
+});
+
 function el(id){ return document.getElementById(id); }
 function num(v){ return (v === null || v === undefined) ? "—"
   : Number(v).toLocaleString("pt-BR"); }
@@ -333,7 +350,10 @@ function desenhaRanking(r){
     '<th class="c-bar"></th><th class="num">% apurados</th>',
     "</tr></thead><tbody>"];
   linhas.forEach(function(ln){
-    h.push("<tr><td>" + esc(ln[0]) +
+    h.push("<tr><td>" + (ln[4]
+      ? '<span class="minimapa-alvo" data-sq="' + ln[4] + '">' +
+        esc(ln[0]) + "</span>"
+      : esc(ln[0])) +
       (ln[5] ? ' <span style="color:#8A93A8">· ' + esc(ln[5]) +
        "</span>" : "") + "</td>");
     h.push("<td>" + esc(ln[1]) + "</td>");
@@ -632,7 +652,7 @@ function desenhaMapa(sc){
   locais.forEach(function(g){
     var L2 = sc.L[g.li];
     g.nome = L2[0]; g.ende = L2[1]; g.bairro = L2[2] || "";
-    g.lat = L2[3]; g.lon = L2[4];
+    g.lat = L2[3]; g.lon = L2[4]; g.aprox = L2[5] || 0;
     (g.lat !== null && g.lat !== undefined &&
      g.lon !== null && g.lon !== undefined ? comCoord : semCoord).push(g);
   });
@@ -651,9 +671,22 @@ function desenhaMapa(sc){
         (modoMapa === m[0] ? ' class="ativo"' : "") + ">" + m[1] +
         "</button>");
     });
+  if(comCoord.length){
+    h.push('<button data-acao="mapa-tela" style="margin-left:auto">' +
+      "Tela inteira</button>");
+  }
   h.push("</div>");
   if(comCoord.length){
     h.push('<div id="mapa-caixa" class="mapa-caixa"></div>');
+    var nAprox = comCoord.filter(function(g){ return g.aprox; }).length;
+    if(nAprox){
+      h.push('<div style="margin-top:8px;font-size:12.5px;' +
+        'color:var(--tinta2)"><b>' + num(nAprox) + " " +
+        (nAprox === 1 ? "local está" : "locais estão") +
+        " em posição APROXIMADA</b> (borda tracejada): o TSE não " +
+        "publicou a coordenada e a posição foi estimada pelo nome do " +
+        "bairro/povoado ou pelo mesmo local em outro pleito.</div>");
+    }
     if(semCoord.length){
       h.push('<div style="margin-top:10px;font-size:12.5px;' +
         'color:var(--tinta2)"><b>' + num(semCoord.length) +
@@ -758,8 +791,12 @@ function desenhaMapa(sc){
       raio = 5 + 22 * Math.sqrt(g.sel / maxSel);
     }
     var marca = L.circleMarker([g.lat, g.lon], {radius: raio,
-      color: borda, weight: 1.5, fillColor: cor, fillOpacity: opac});
-    var linhasPop = ["<b>" + esc(g.nome) + "</b>",
+      color: g.aprox ? "#8A93A8" : borda,
+      weight: g.aprox ? 2 : 1.5, dashArray: g.aprox ? "4 3" : null,
+      fillColor: cor, fillOpacity: opac});
+    var linhasPop = ["<b>" + esc(g.nome) + "</b>" +
+      (g.aprox ? ' <i style="color:#8A93A8">(posição aproximada)</i>'
+               : ""),
       esc(g.bairro || ""), esc(g.ende || ""),
       "Votos: <b>" + num(g.sel) + "</b>" +
       (g.nominais ? " (" + pct(g.sel, g.nominais) +
@@ -782,6 +819,101 @@ function desenhaMapa(sc){
   });
   mapa.fitBounds(limites, {padding: [30, 30]});
 }
+
+/* ------- mini-mapa ao passar o mouse no nome do candidato ------- */
+var miniLeaflet = null, miniTimer = null, miniAlvo = null;
+
+function fechaMiniMapa(){
+  clearTimeout(miniTimer);
+  miniAlvo = null;
+  var p = el("minimapa-pop");
+  if(p) p.style.display = "none";
+  if(miniLeaflet){ miniLeaflet.remove(); miniLeaflet = null; }
+}
+
+function abreMiniMapa(alvo, x, y){
+  if(typeof L === "undefined") return;
+  var sq = alvo.dataset.sq;
+  var p2 = paginaAtual();
+  var arq = estado.mun ? arqSc(p2.cargo, estado.mun) : arqMn(p2.cargo);
+  pega(arq).then(function(f){
+    if(miniAlvo !== alvo) return;   // o mouse já saiu dali
+    var c = f.c[sq];
+    if(!c) return;
+    var pontos = [], total = 0;
+    if(estado.mun){
+      var porLi = {};
+      for(var i = 0; i < c.v.length; i += 2){
+        var s = f.S[c.v[i]];
+        porLi[s[2]] = (porLi[s[2]] || 0) + c.v[i + 1];
+        total += c.v[i + 1];
+      }
+      Object.keys(porLi).forEach(function(li){
+        var L2 = f.L[li];
+        if(L2[3] !== null && L2[3] !== undefined &&
+           L2[4] !== null && L2[4] !== undefined)
+          pontos.push([L2[3], L2[4], porLi[li]]);
+      });
+    } else {
+      var ctr = (idx.ctr || {})[estado.uf] || {};
+      for(var j = 0; j < c.v.length; j += 2){
+        var mm = f.m[c.v[j]];
+        total += c.v[j + 1];
+        var cc = ctr[String(mm[0])];
+        if(cc) pontos.push([cc[0], cc[1], c.v[j + 1]]);
+      }
+    }
+    if(!pontos.length) return;
+    var pop = el("minimapa-pop");
+    if(!pop){
+      pop = document.createElement("div");
+      pop.id = "minimapa-pop";
+      pop.innerHTML = '<div class="mm-titulo"></div>' +
+        '<div id="minimapa-mapa"></div>';
+      document.body.appendChild(pop);
+    }
+    pop.querySelector(".mm-titulo").textContent =
+      (c.n || "") + " — " + num(total) +
+      (estado.mun ? " votos no município (por local)"
+                  : " votos (por município)");
+    pop.style.display = "block";
+    pop.style.left = Math.max(6,
+      Math.min(x + 18, window.innerWidth - 360)) + "px";
+    pop.style.top = Math.max(6,
+      Math.min(y + 12, window.innerHeight - 300)) + "px";
+    if(miniLeaflet){ miniLeaflet.remove(); miniLeaflet = null; }
+    var mapa = L.map("minimapa-mapa", {zoomControl: false,
+      attributionControl: false, dragging: false,
+      scrollWheelZoom: false, doubleClickZoom: false});
+    miniLeaflet = mapa;
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {maxZoom: 19}).addTo(mapa);
+    var maxV = 0, lim = [];
+    pontos.forEach(function(pt){ if(pt[2] > maxV) maxV = pt[2]; });
+    pontos.forEach(function(pt){
+      lim.push([pt[0], pt[1]]);
+      L.circleMarker([pt[0], pt[1]], {
+        radius: 2 + 10 * Math.sqrt(pt[2] / (maxV || 1)),
+        color: "#FFFFFF", weight: 1, fillColor: "#6366F1",
+        fillOpacity: 0.75}).addTo(mapa);
+    });
+    mapa.fitBounds(lim, {padding: [14, 14]});
+  }).catch(function(){});
+}
+
+document.addEventListener("mouseover", function(ev){
+  var alvo = ev.target.closest ? ev.target.closest(".minimapa-alvo")
+                               : null;
+  if(!alvo) return;
+  miniAlvo = alvo;
+  clearTimeout(miniTimer);
+  var x = ev.clientX, y = ev.clientY;
+  miniTimer = setTimeout(function(){ abreMiniMapa(alvo, x, y); }, 250);
+});
+document.addEventListener("mouseout", function(ev){
+  if(ev.target.closest && ev.target.closest(".minimapa-alvo"))
+    fechaMiniMapa();
+});
 
 function desenhaCombinado(fEst, fFed, porMunicipio){
   var linhas = [], total = 0;
@@ -1141,6 +1273,25 @@ document.addEventListener("click", function(ev){
   if(!alvo) return;
   var acao = alvo.dataset.acao;
   if(acao === "pagina"){ abrePagina(alvo.dataset.id); }
+  else if(acao === "mapa-tela"){
+    var cxm = document.getElementById("mapa-caixa");
+    if(!cxm) return;
+    if(document.fullscreenElement || cxm.classList.contains("tela-cheia")){
+      if(document.fullscreenElement) document.exitFullscreen();
+      cxm.classList.remove("tela-cheia");
+      if(mapaLeaflet)
+        setTimeout(function(){ mapaLeaflet.invalidateSize(); }, 120);
+    } else {
+      // plano B: se o navegador negar a API, painel fixo na janela
+      var pr = cxm.requestFullscreen ? cxm.requestFullscreen()
+                                     : Promise.reject();
+      Promise.resolve(pr).catch(function(){
+        cxm.classList.add("tela-cheia");
+        if(mapaLeaflet)
+          setTimeout(function(){ mapaLeaflet.invalidateSize(); }, 120);
+      });
+    }
+  }
   else if(acao === "marcar"){
     var p = paginaAtual();
     if(p.tipo === "casadinha"){
