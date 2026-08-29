@@ -6,7 +6,10 @@
 var idx = null;
 var cacheArq = {};
 var estado = {ano: "2022", uf: "BA", pagina: null, turno: 1, mun: "",
-              sel: {}, selEst: null, selFed: null, ultimo: null};
+              sel: {}, selEst: null, selFed: null, ultimo: null,
+              muns: []};
+var MAX_MUN = 4;   // municípios no comparativo entre municípios
+var CARGO_REF = {"2020": 11, "2022": 3, "2024": 11};
 var reqAtual = 0;
 var buscaSeq = 0;            // sequência da busca de candidatos
 var buscaTimer = null;       // debounce da busca (cancelado ao trocar de página)
@@ -139,6 +142,8 @@ function paginas(){
   }
   pgs.push({id: "pan", tipo: "panorama", cargo: 0,
             titulo: "PANORAMA DO MUNICÍPIO"});
+  pgs.push({id: "cmun", tipo: "compmun", cargo: 0,
+            titulo: "COMPARATIVO DE MUNICÍPIOS"});
   return pgs;
 }
 function paginaAtual(){
@@ -369,6 +374,9 @@ function consultar(){
           : "Falha ao carregar: " + (e ? e.message : "?"));
       });
     }
+  } else if(p.tipo === "compmun"){
+    pega("d/pan/" + estado.uf + ".json")
+      .then(guarda(desenhaCompMun)).catch(falha);
   } else if(p.tipo === "panorama"){
     if(!estado.mun){
       el("pg-tabela").innerHTML = "";
@@ -1191,6 +1199,111 @@ function desenhaPerfilVoto(f, sqsPV){
   el("pg-lateral").innerHTML = lat.join("");
 }
 
+/* ------------- comparativo entre municípios ------------- */
+function chipsMun(){
+  var h = ['<div class="modo-botoes nao-imprime">'];
+  h.push('<button data-acao="mun-add">+ Adicionar ' +
+    (estado.mun ? esc(nomeMun(estado.mun)) : "município") + "</button>");
+  estado.muns.forEach(function(cd){
+    h.push('<button data-acao="mun-del" data-cd="' + esc(cd) +
+      '" title="remover">' + esc(nomeMun(cd)) + " ×</button>");
+  });
+  if(estado.muns.length){
+    h.push('<button data-acao="mun-limpar">Limpar</button>');
+  }
+  h.push("</div>");
+  return h.join("");
+}
+function desenhaCompMun(f){
+  ajustaTurnos({turnos: [1]});
+  var h = [chipsMun()];
+  var cds = estado.muns.filter(function(cd){
+    return f.m[String(cd)] && f.m[String(cd)][estado.ano]; });
+  if(cds.length < 2){
+    h.push('<p style="padding:10px;color:#5B6478">Escolha o município ' +
+      "no filtro acima e clique em <b>+ Adicionar</b> — até " +
+      MAX_MUN + " municípios, no mínimo 2.</p>");
+    el("pg-tabela").innerHTML = h.join("");
+    el("pg-lateral").innerHTML = "";
+    aviso(estado.muns.length && cds.length < estado.muns.length
+      ? "Algum município escolhido não tem dados em " + estado.ano + "."
+      : "");
+    return;
+  }
+  aviso("");
+  var cargoRef = CARGO_REF[estado.ano] || 11;
+  function d(cd){ return f.m[String(cd)][estado.ano]; }
+  var linhas = [
+    ["Eleitorado apto", function(v){ return num(v[0]); }],
+    ["Comparecimento", function(v){
+      return num(v[1]) + " (" + pct(v[1], v[0]) + ")"; }],
+    ["Abstenção", function(v){ return pct(v[0] - v[1], v[0]); }],
+    ["Votos válidos", function(v){ return num(v[2]); }],
+    ["Brancos + nulos", function(v){
+      return num(v[3]) + " (" + pct(v[3], v[1]) + ")"; }],
+    ["Locais de votação", function(v){ return num(v[4]); }],
+    ["Seções eleitorais", function(v){ return num(v[5]); }],
+    ["Eleitores por seção", function(v){
+      return v[5] ? num(Math.round(v[0] / v[5])) : "—"; }],
+    ["Mais votado (" + esc(idx.cargos[cargoRef] || "") + ")",
+     function(v){
+       return v[8] ? esc(v[8][0]) + " (" + esc(v[8][1]) + ") — " +
+         num(v[8][2]) : "—"; }]
+  ];
+  h.push("<table><thead><tr><th>Indicador</th>");
+  cds.forEach(function(cd){
+    h.push('<th class="num">' + esc(nomeMun(cd)) + "</th>");
+  });
+  h.push("</tr></thead><tbody>");
+  linhas.forEach(function(ln){
+    h.push("<tr><td>" + ln[0] + "</td>");
+    cds.forEach(function(cd){
+      h.push('<td class="num">' + ln[1](d(cd)) + "</td>");
+    });
+    h.push("</tr>");
+  });
+  h.push("</tbody></table>");
+  ["genero", "faixa", "escol"].forEach(function(dim){
+    var cats = {};
+    cds.forEach(function(cd){
+      var perf = d(cd)[7] || {};
+      (perf[dim] || []).forEach(function(par){
+        cats[par[0]] = cats[par[0]] || {};
+        cats[par[0]][cd] = par[1];
+      });
+    });
+    var lista = Object.keys(cats).sort(function(a, b){
+      return (cats[b][cds[0]] || 0) - (cats[a][cds[0]] || 0); });
+    if(!lista.length) return;
+    h.push('<h3 style="margin:14px 0 6px">' + DIM_TITULO[dim] +
+      " do eleitorado</h3><table><thead><tr><th>Categoria</th>");
+    cds.forEach(function(cd){
+      h.push('<th class="num">' + esc(nomeMun(cd)) + "</th>");
+    });
+    h.push("</tr></thead><tbody>");
+    lista.forEach(function(cat){
+      h.push("<tr><td>" + esc(cat) + "</td>");
+      cds.forEach(function(cd){
+        var v = cats[cat][cd];
+        h.push('<td class="num">' + (v === undefined ? "—" :
+          (100 * v).toLocaleString("pt-BR",
+            {minimumFractionDigits: 1, maximumFractionDigits: 1}) +
+          "%") + "</td>");
+      });
+      h.push("</tr>");
+    });
+    h.push("</tbody></table>");
+  });
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Indicadores do 1º turno do cargo de ' +
+    "referência do pleito (Prefeito em 2020/2024, Governador em 2022). " +
+    "Abstenção sobre o eleitorado apto; brancos + nulos sobre o " +
+    "comparecimento.</div>");
+  el("pg-tabela").innerHTML = h.join("");
+  el("pg-lateral").innerHTML = cds.map(function(cd){
+    return kpi(d(cd)[0], "eleitores aptos — " + nomeMun(cd)); }).join("");
+}
+
 /* ---------------- panorama do município ---------------- */
 function desenhaPanorama(f){
   ajustaTurnos({turnos: [1]});
@@ -1805,6 +1918,27 @@ document.addEventListener("click", function(ev){
     ordemCusto = alvo.dataset.ordem;
     consultar();
   }
+  else if(acao === "mun-add"){
+    if(!estado.mun){
+      aviso("Escolha um município no filtro acima antes de adicionar.");
+      return;
+    }
+    if(estado.muns.indexOf(estado.mun) >= 0){
+      aviso("Esse município já está na comparação."); return;
+    }
+    if(estado.muns.length >= MAX_MUN){
+      aviso("Máximo de " + MAX_MUN + " municípios. Remova um antes.");
+      return;
+    }
+    estado.muns.push(estado.mun);
+    consultar();
+  }
+  else if(acao === "mun-del"){
+    estado.muns = estado.muns.filter(function(cd){
+      return String(cd) !== String(alvo.dataset.cd); });
+    consultar();
+  }
+  else if(acao === "mun-limpar"){ estado.muns = []; consultar(); }
   else if(acao === "imprimir"){ window.print(); }
   else if(acao === "exportar"){ exportar(); }
 });
@@ -1834,6 +1968,7 @@ fetch("d/idx.json").then(function(r){ return r.json(); })
     });
     el("f-uf").addEventListener("change", function(){
       estado.uf = this.value; estado.mun = "";
+      estado.muns = [];   // códigos são de outra UF
       desenhaMunicipios(el("c-mun-busca").value);
       abrePagina(estado.pagina);
     });
