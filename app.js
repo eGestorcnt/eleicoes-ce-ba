@@ -126,6 +126,10 @@ function paginas(){
               titulo: idx.cargos[c] + " CUSTO DO VOTO"});
     pgs.push({id: "pv" + c, tipo: "perfilvoto", cargo: c,
               titulo: idx.cargos[c] + " PERFIL DO VOTO"});
+    if(c === 11 || c === 13){
+      pgs.push({id: "ev" + c, tipo: "evolucao", cargo: c,
+                titulo: idx.cargos[c] + " EVOLUÇÃO 2020→2024"});
+    }
   });
   if(estado.ano === "2022"){
     pgs.push({id: "comb", tipo: "combinado", cargo: 0,
@@ -308,6 +312,22 @@ function consultar(){
     Promise.all(fontes.map(pega)).then(guarda(function(rs){
       desenhaCombinado(rs[0], rs[1], !!estado.mun);
     })).catch(falha);
+  } else if(p.tipo === "evolucao"){
+    if(!estado.mun){
+      el("pg-tabela").innerHTML = "";
+      el("pg-lateral").innerHTML = "";
+      aviso("Selecione o município para comparar 2020 com 2024.");
+    } else {
+      pega("d/ev/" + estado.mun + "_" + p.cargo + ".json")
+        .then(guarda(desenhaEvolucao)).catch(function(e){
+          if(id !== reqAtual) return;
+          el("pg-tabela").innerHTML = "";
+          el("pg-lateral").innerHTML = "";
+          aviso((e && e.semDados)
+            ? "Sem comparação disponível para este município."
+            : "Falha ao carregar: " + (e ? e.message : "?"));
+        });
+    }
   } else if(p.tipo === "custo"){
     pega("d/cv/" + estado.ano + "_" + estado.uf + "_" + p.cargo +
          ".json").then(guarda(desenhaCusto)).catch(function(e){
@@ -945,6 +965,94 @@ function desenhaMapa(sc){
     marca.addTo(mapa);
   });
   mapa.fitBounds(limites, {padding: [30, 30]});
+}
+
+/* ---------------- evolução 2020 → 2024 ---------------- */
+function seta(d){
+  if(d > 0) return '<span style="color:#10B981">▲ +' + num(d) +
+    "</span>";
+  if(d < 0) return '<span style="color:#EF4444">▼ ' + num(d) +
+    "</span>";
+  return '<span style="color:#8A93A8">=</span>';
+}
+function desenhaEvolucao(f){
+  ajustaTurnos({turnos: [1]});
+  var sq = Object.keys(estado.sel)[0];
+  var cand = sq ? f.c[sq] : null;
+  if(sq && !cand){
+    el("pg-tabela").innerHTML = "";
+    el("pg-lateral").innerHTML = "";
+    aviso("O candidato marcado não tem candidatura nos dois pleitos " +
+      "neste município (pareamento por título de eleitor).");
+    return;
+  }
+  aviso("");
+  var pares = cand ? cand.v : null;
+  var porLi = {};
+  if(pares){
+    for(var k = 0; k < pares.length; k += 3){
+      porLi[pares[k]] = [pares[k+1], pares[k+2]];
+    }
+  } else {
+    f.t.forEach(function(x){ porLi[x[0]] = [x[1], x[2]]; });
+  }
+  var linhas = Object.keys(porLi).map(function(li){
+    var L2 = f.L[li] || ["(local não cadastrado)", "", ""];
+    return {nome: L2[0], bairro: L2[2] || "",
+            a: porLi[li][0], b: porLi[li][1],
+            dif: porLi[li][1] - porLi[li][0]};
+  });
+  linhas.sort(function(x, y){ return Math.abs(y.dif) - Math.abs(x.dif); });
+  var totalA = 0, totalB = 0, pareados = 0;
+  linhas.forEach(function(l){
+    totalA += l.a; totalB += l.b;
+    if(l.a && l.b) pareados += 1;
+  });
+  estado.ultimo = {tipo: "evolucao", linhas: linhas, total: totalB};
+  var h = ['<table><thead><tr><th>Local de votação</th><th>Bairro</th>',
+    '<th class="num">2020</th><th class="num">2024</th>',
+    '<th class="num">Diferença</th><th class="num">Variação</th>',
+    "</tr></thead><tbody>"];
+  linhas.forEach(function(ln){
+    h.push("<tr><td>" + esc(ln.nome) +
+      (!ln.a ? ' <span class="situ situ-outro">NOVO</span>' : "") +
+      (!ln.b ? ' <span class="situ situ-outro">SEM VOTOS EM 2024' +
+        "</span>" : "") + "</td>");
+    h.push("<td>" + esc(ln.bairro) + "</td>");
+    h.push('<td class="num">' + num(ln.a) + "</td>");
+    h.push('<td class="num"><b>' + num(ln.b) + "</b></td>");
+    h.push('<td class="num">' + seta(ln.dif) + "</td>");
+    h.push('<td class="num">' + (ln.a ? pct(ln.dif, ln.a) : "—") +
+      "</td></tr>");
+  });
+  h.push("</tbody></table>");
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Locais pareados pelo número do local dentro ' +
+    "da zona — o TSE renomeia escolas, mas mantém o número. " +
+    (cand ? "A mesma pessoa nos dois pleitos é identificada pelo " +
+      "TÍTULO DE ELEITOR (o CPF de 2024 não é divulgado e o código " +
+      "da candidatura muda a cada eleição). "
+      : "Sem candidato marcado, a comparação é dos VOTOS NOMINAIS do " +
+        "cargo. ") +
+    "Locais marcados como NOVO não tinham voto em 2020.</div>");
+  el("pg-tabela").innerHTML = h.join("");
+  var lat = [];
+  if(cand){
+    lat.push('<div class="cartao"><div style="font-weight:700;' +
+      'margin-bottom:6px">Mesma pessoa nos dois pleitos</div>' +
+      '<div style="margin:3px 0">2020: ' +
+      esc(cand.n20 + " (" + (cand.p20 || "") + ")") + "</div>" +
+      '<div style="margin:3px 0">2024: ' +
+      esc(cand.n + " (" + (cand.p || "") + ")") + "</div></div>");
+  }
+  var dif = totalB - totalA;
+  lat.push(kpi(totalA, "votos em 2020"), kpi(totalB, "votos em 2024"));
+  lat.push('<div class="cartao"><div class="kpi">' +
+    (dif >= 0 ? "+" : "") + num(dif) + '</div><div class="kpi-rotulo">' +
+    "diferença" + (totalA ? " (" + pct(dif, totalA) + ")" : "") +
+    "</div></div>");
+  lat.push(kpi(pareados, "locais presentes nos dois pleitos"));
+  el("pg-lateral").innerHTML = lat.join("");
 }
 
 /* ---------------- custo do voto ---------------- */
