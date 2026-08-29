@@ -443,33 +443,58 @@ function desenhaRanking(r){
 
 function desenhaCidade(mn){
   var sqs = Object.keys(estado.sel);
-  var acum = {}, total = 0;
+  var acum = {}, urb = {}, rur = {};
+  var total = 0, totalU = 0, totalR = 0;
+  function soma(destino, pares, conta){
+    if(!pares) return 0;
+    var s = 0;
+    for(var k = 0; k < pares.length; k += 2){
+      destino[pares[k]] = (destino[pares[k]] || 0) + pares[k+1];
+      s += pares[k+1];
+    }
+    return conta ? s : 0;
+  }
   sqs.forEach(function(sq){
     var c = mn.c[sq];
     if(!c) return;
-    for(var k = 0; k < c.v.length; k += 2){
-      acum[c.v[k]] = (acum[c.v[k]] || 0) + c.v[k+1];
-      total += c.v[k+1];
-    }
+    total += soma(acum, c.v, true);
+    totalU += soma(urb, c.u, true);
+    totalR += soma(rur, c.r, true);
   });
   var linhas = Object.keys(acum).map(function(i){
-    return [mn.m[i][1], acum[i]]; });
+    return [mn.m[i][1], acum[i], urb[i] || 0, rur[i] || 0]; });
   linhas.sort(function(a, b){ return b[1] - a[1]; });
   estado.ultimo = {tipo: "cidade", linhas: linhas, total: total};
   aviso("");
   var max = linhas.length ? linhas[0][1] : 0;
   var h = ['<table><thead><tr><th>Município</th>',
     '<th class="num">Votos</th><th class="c-bar"></th>',
-    '<th class="num">% do selecionado</th></tr></thead><tbody>'];
+    '<th class="num">% do selecionado</th>',
+    '<th class="num">Urbana</th><th class="num">Rural</th>',
+    '<th class="num">% rural</th></tr></thead><tbody>'];
   linhas.forEach(function(ln){
     h.push("<tr><td>" + esc(ln[0]) + '</td><td class="num"><b>' +
       num(ln[1]) + '</b></td><td class="c-bar">' + barra(ln[1], max) +
-      '</td><td class="num">' + pct(ln[1], total) + "</td></tr>");
+      '</td><td class="num">' + pct(ln[1], total) + "</td>" +
+      '<td class="num">' + num(ln[2]) + "</td>" +
+      '<td class="num">' + num(ln[3]) + "</td>" +
+      '<td class="num">' + pct(ln[3], ln[1]) + "</td></tr>");
   });
   h.push("</tbody></table>");
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Urbana e rural saem do SUFIXO DO ENDEREÇO ' +
+    "do local de votação, como o TSE publica. Local sem essa " +
+    "indicação não entra em nenhuma das duas colunas — por isso a " +
+    "soma delas pode ficar abaixo do total.</div>");
   el("pg-tabela").innerHTML = h.join("");
-  el("pg-lateral").innerHTML =
-    kpi(total, "votos dos candidatos selecionados");
+  var lat = [kpi(total, "votos dos candidatos selecionados"),
+    kpi(totalU, "votos em zona urbana (" + pct(totalU, total) + ")"),
+    kpi(totalR, "votos em zona rural (" + pct(totalR, total) + ")")];
+  var semInd = total - totalU - totalR;
+  if(semInd > 0){
+    lat.push(kpi(semInd, "sem indicação de área no endereço"));
+  }
+  el("pg-lateral").innerHTML = lat.join("");
 }
 
 function resumosDeSecao(sc, mapa, total){
@@ -1522,8 +1547,9 @@ function exportar(){
     u.dados.l.forEach(function(x){ l.push([x[0], x[1], x[2], x[3]]); });
     l.push([], ["TOTAL", "", "", u.dados.total]);
   } else if(u.tipo === "cidade"){
-    l.push(["MUNICÍPIO", "VOTOS"]);
-    u.linhas.forEach(function(x){ l.push([x[0], x[1]]); });
+    l.push(["MUNICÍPIO", "VOTOS", "ZONA URBANA", "ZONA RURAL"]);
+    u.linhas.forEach(function(x){
+      l.push([x[0], x[1], x[2], x[3]]); });
     l.push([], ["TOTAL", u.total]);
   } else if(u.tipo === "secao"){
     l.push(["ZONA", "SEÇÃO", "LOCAL", "ENDEREÇO", "VOTOS"]);
