@@ -123,6 +123,8 @@ function paginas(){
     pgs.push({id: "casad", tipo: "casadinha", cargo: 7,
               titulo: "CASADINHA ESTADUAL × FEDERAL"});
   }
+  pgs.push({id: "pan", tipo: "panorama", cargo: 0,
+            titulo: "PANORAMA DO MUNICÍPIO"});
   return pgs;
 }
 function paginaAtual(){
@@ -296,6 +298,15 @@ function consultar(){
     Promise.all(fontes.map(pega)).then(guarda(function(rs){
       desenhaCombinado(rs[0], rs[1], !!estado.mun);
     })).catch(falha);
+  } else if(p.tipo === "panorama"){
+    if(!estado.mun){
+      el("pg-tabela").innerHTML = "";
+      el("pg-lateral").innerHTML = "";
+      aviso("Selecione o município para ver o panorama.");
+      return;
+    }
+    pega("d/pan/" + estado.uf + ".json")
+      .then(guarda(desenhaPanorama)).catch(falha);
   } else if(p.tipo === "casadinha"){
     if(!(estado.selEst && estado.selFed)){
       el("pg-tabela").innerHTML = "";
@@ -820,6 +831,56 @@ function desenhaMapa(sc){
   mapa.fitBounds(limites, {padding: [30, 30]});
 }
 
+/* ---------------- panorama do município ---------------- */
+function desenhaPanorama(f){
+  ajustaTurnos({turnos: [1]});
+  var d = f.m[String(estado.mun)];
+  if(!d){
+    el("pg-tabela").innerHTML = "";
+    el("pg-lateral").innerHTML = "";
+    aviso("Sem panorama para este município.");
+    return;
+  }
+  aviso("");
+  estado.ultimo = {tipo: "panorama", d: d};
+  var anos = ["2020", "2022", "2024"];
+  function cel(a, fn){
+    var v = d[a];
+    return v ? fn(v) : "—";
+  }
+  var linhas = [
+    ["Eleitorado apto", function(v){ return num(v[0]); }],
+    ["Comparecimento", function(v){
+      return num(v[1]) + " (" + pct(v[1], v[0]) + ")"; }],
+    ["Abstenção (%)", function(v){ return pct(v[0] - v[1], v[0]); }],
+    ["Votos válidos", function(v){ return num(v[2]); }],
+    ["Brancos + nulos (%)", function(v){
+      return num(v[3]) + " (" + pct(v[3], v[1]) + ")"; }],
+    ["Locais de votação", function(v){ return num(v[4]); }],
+    ["Seções eleitorais", function(v){ return num(v[5]); }]
+  ];
+  var h = ["<table><thead><tr><th>Indicador</th>"];
+  anos.forEach(function(a){ h.push('<th class="num">' + a + "</th>"); });
+  h.push("</tr></thead><tbody>");
+  linhas.forEach(function(ln){
+    h.push("<tr><td>" + ln[0] + "</td>");
+    anos.forEach(function(a){
+      h.push('<td class="num">' + cel(a, ln[1]) + "</td>");
+    });
+    h.push("</tr>");
+  });
+  h.push("</tbody></table>");
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Comparecimento, válidos e percentuais do ' +
+    "1º turno do cargo de referência do pleito — Prefeito em " +
+    "2020/2024 e Governador em 2022. Abstenção sobre o eleitorado " +
+    "apto; brancos + nulos sobre o comparecimento.</div>");
+  el("pg-tabela").innerHTML = h.join("");
+  var ult = d["2024"] || d["2022"] || d["2020"];
+  el("pg-lateral").innerHTML =
+    kpi(ult ? ult[0] : 0, "eleitores aptos no pleito mais recente");
+}
+
 /* ------- mini-mapa ao passar o mouse no nome do candidato ------- */
 var miniLeaflet = null, miniTimer = null, miniAlvo = null;
 
@@ -1189,7 +1250,16 @@ function baixaCsv(nome, linhas){
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
 }
+// Exportação SUSPENSA a pedido do titular (29/08/2026) — o botão foi
+// removido do index.html; esta trava cobre também chamadas diretas.
+// Para reativar: EXPORTAR_ATIVO = true e devolver o botão.
+var EXPORTAR_ATIVO = false;
+
 function exportar(){
+  if(!EXPORTAR_ATIVO){
+    aviso("A exportação de dados está temporariamente suspensa.");
+    return;
+  }
   var u = estado.ultimo;
   if(!u){ return; }
   var p = paginaAtual();
@@ -1262,6 +1332,24 @@ function exportar(){
       l.push(f.concat([g.est, g.fed, g.casada])); });
     l.push([], (u.base === "secao" ? ["TOTAL", "", ""] : ["TOTAL"])
       .concat([u.tE, u.tF, u.tC]));
+  } else if(u.tipo === "panorama"){
+    l.push(["INDICADOR", "2020", "2022", "2024"]);
+    [["Eleitorado apto", function(v){ return v[0]; }],
+     ["Comparecimento", function(v){ return v[1]; }],
+     ["Abstenção (%)", function(v){
+       return v[0] ? (100 * (v[0] - v[1]) / v[0]).toFixed(1) : ""; }],
+     ["Votos válidos", function(v){ return v[2]; }],
+     ["Brancos + nulos", function(v){ return v[3]; }],
+     ["Brancos + nulos (%)", function(v){
+       return v[1] ? (100 * v[3] / v[1]).toFixed(1) : ""; }],
+     ["Locais de votação", function(v){ return v[4]; }],
+     ["Seções eleitorais", function(v){ return v[5]; }]
+    ].forEach(function(ln){
+      l.push([ln[0]].concat(["2020", "2022", "2024"].map(function(a){
+        return u.d[a] ? ln[1](u.d[a]) : ""; })));
+    });
+    l.push([], ["1º turno; cargo de referência: Prefeito em 2020/2024" +
+      ", Governador em 2022"]);
   }
   baixaCsv("eleicoes_" + p.tipo + "_" + estado.ano + "_" + estado.uf +
     ".csv", l);
