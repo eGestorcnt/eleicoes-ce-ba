@@ -11,7 +11,10 @@ var reqAtual = 0;
 var buscaSeq = 0;            // sequência da busca de candidatos
 var buscaTimer = null;       // debounce da busca (cancelado ao trocar de página)
 var MAX_SEL = 6;   // comparação legível e rápida de desenhar
-var modoMapa = "votos";      // votos | percentual | ranking | calor
+var modoMapa = "votos";      // votos | percentual | ranking | calor | abstencao
+var ordemCusto = "votos";    // votos | custo_menor | custo_maior | despesa
+var DIM_TITULO = {genero: "Gênero", faixa: "Faixa etária",
+                  escol: "Escolaridade"};
 var mapaLeaflet = null;      // instância viva do Leaflet
 var CORES_RANKING = ["#6366F1", "#F59E0B", "#10B981", "#EF4444",
                      "#0EA5E9", "#8B5CF6"];
@@ -39,6 +42,9 @@ function num(v){ return (v === null || v === undefined) ? "—"
 function pct(a, b){ if(!b) return "—";
   return (100*a/b).toLocaleString("pt-BR",
     {minimumFractionDigits:1, maximumFractionDigits:1}) + "%"; }
+function dinheiro(v){ return (v === null || v === undefined) ? "—"
+  : "R$ " + Number(v).toLocaleString("pt-BR",
+    {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 function esc(t){ var d = document.createElement("div");
   d.textContent = (t === null || t === undefined) ? "" : String(t);
   return d.innerHTML; }
@@ -116,6 +122,10 @@ function paginas(){
               titulo: idx.cargos[c] + " COMPARATIVO"});
     pgs.push({id: "map" + c, tipo: "mapa", cargo: c,
               titulo: idx.cargos[c] + " MAPA"});
+    pgs.push({id: "cv" + c, tipo: "custo", cargo: c,
+              titulo: idx.cargos[c] + " CUSTO DO VOTO"});
+    pgs.push({id: "pv" + c, tipo: "perfilvoto", cargo: c,
+              titulo: idx.cargos[c] + " PERFIL DO VOTO"});
   });
   if(estado.ano === "2022"){
     pgs.push({id: "comb", tipo: "combinado", cargo: 0,
@@ -298,6 +308,47 @@ function consultar(){
     Promise.all(fontes.map(pega)).then(guarda(function(rs){
       desenhaCombinado(rs[0], rs[1], !!estado.mun);
     })).catch(falha);
+  } else if(p.tipo === "custo"){
+    pega("d/cv/" + estado.ano + "_" + estado.uf + "_" + p.cargo +
+         ".json").then(guarda(desenhaCusto)).catch(function(e){
+      if(id !== reqAtual) return;
+      el("pg-tabela").innerHTML = "";
+      el("pg-lateral").innerHTML = "";
+      aviso((e && e.semDados)
+        ? "Os dados de prestação de contas ainda não foram publicados."
+        : "Falha ao carregar: " + (e ? e.message : "?"));
+    });
+  } else if(p.tipo === "perfilvoto"){
+    var sqsPV = Object.keys(estado.sel).slice(0, 2);
+    var municipal = (p.cargo === 11 || p.cargo === 13);
+    if(municipal && !estado.mun){
+      el("pg-tabela").innerHTML = "";
+      el("pg-lateral").innerHTML = "";
+      aviso("Selecione o município (o perfil de Prefeito/Vereador é " +
+        "municipal).");
+    } else if(!sqsPV.length){
+      el("pg-tabela").innerHTML = "";
+      el("pg-lateral").innerHTML = "";
+      aviso("Busque e marque até 2 candidatos para ver o perfil " +
+        "demográfico das seções onde eles pontuaram.");
+    } else {
+      var arqPV = municipal
+        ? "d/pv/" + estado.mun + "_" + estado.ano + "_" + p.cargo +
+          ".json"
+        : "d/pv/" + estado.ano + "_" + estado.uf + "_" + p.cargo +
+          ".json";
+      pega(arqPV).then(guarda(function(f){
+        desenhaPerfilVoto(f, sqsPV);
+      })).catch(function(e){
+        if(id !== reqAtual) return;
+        el("pg-tabela").innerHTML = "";
+        el("pg-lateral").innerHTML = "";
+        aviso((e && e.semDados)
+          ? "O perfil do eleitorado ainda não foi publicado para " +
+            "este recorte."
+          : "Falha ao carregar: " + (e ? e.message : "?"));
+      });
+    }
   } else if(p.tipo === "panorama"){
     if(!estado.mun){
       el("pg-tabela").innerHTML = "";
@@ -651,6 +702,15 @@ function agregaPorLocal(sc){
       }
     }
   });
+  // aptos (perfil do eleitorado) e apurados por local — entradas S
+  // ganharam [3]=aptos e [4]=apurados quando os complementos existem
+  sc.S.forEach(function(s){
+    if(s.length < 5) return;
+    var g = locs[s[2]];
+    if(!g) return;
+    g.aptos = (g.aptos || 0) + (s[3] || 0);
+    g.apurados = (g.apurados || 0) + (s[4] || 0);
+  });
   return Object.keys(locs).map(function(k){ return locs[k]; });
 }
 
@@ -674,10 +734,13 @@ function desenhaMapa(sc){
   aviso(typeof L === "undefined"
     ? "O mapa precisa de conexão com a internet para carregar." : "");
 
+  var temAbst = locais.some(function(g){ return (g.aptos || 0) > 0; });
+  if(modoMapa === "abstencao" && !temAbst) modoMapa = "votos";
+  var modos = [["votos", "Votos"], ["percentual", "Percentual"],
+   ["ranking", "Ranking"], ["calor", "Mapa de Calor"]];
+  if(temAbst) modos.push(["abstencao", "Abstenção"]);
   var h = ['<div class="modo-botoes nao-imprime">'];
-  [["votos", "Votos"], ["percentual", "Percentual"],
-   ["ranking", "Ranking"], ["calor", "Mapa de Calor"]]
-    .forEach(function(m){
+  modos.forEach(function(m){
       h.push('<button data-acao="modo-mapa" data-modo="' + m[0] + '"' +
         (modoMapa === m[0] ? ' class="ativo"' : "") + ">" + m[1] +
         "</button>");
@@ -728,9 +791,21 @@ function desenhaMapa(sc){
   }
   el("pg-tabela").innerHTML = h.join("");
 
-  var lat = [kpi(total, sqs.length
-    ? "votos dos selecionados no município"
-    : "votos nominais no município")];
+  var lat;
+  if(modoMapa === "abstencao" && temAbst){
+    var aptosM = 0, apurM = 0;
+    locais.forEach(function(g){
+      aptosM += g.aptos || 0; apurM += g.apurados || 0;
+    });
+    lat = [kpi(aptosM, "eleitores aptos no município"),
+           kpi(apurM, "comparecimento (" + pct(apurM, aptosM) + ")"),
+           kpi(aptosM - apurM,
+               "abstenções (" + pct(aptosM - apurM, aptosM) + ")")];
+  } else {
+    lat = [kpi(total, sqs.length
+      ? "votos dos selecionados no município"
+      : "votos nominais no município")];
+  }
   if(modoMapa === "ranking" && sqs.length){
     var leg = ['<div class="cartao"><div style="font-weight:700;' +
       'margin-bottom:6px">Quem lidera em cada local</div>'];
@@ -779,10 +854,19 @@ function desenhaMapa(sc){
     {maxZoom: 19, attribution: "&copy; OpenStreetMap"}).addTo(mapa);
   var limites = [];
   var maxSel = comCoord[0].sel || 1;
+  var maxAptos = 1;
+  comCoord.forEach(function(g){
+    if((g.aptos || 0) > maxAptos) maxAptos = g.aptos;
+  });
   comCoord.forEach(function(g){
     limites.push([g.lat, g.lon]);
     var cor = "#6366F1", raio, opac = 0.75, borda = "#FFFFFF";
-    if(modoMapa === "ranking" && sqs.length){
+    if(modoMapa === "abstencao"){
+      var taxa = g.aptos ? (g.aptos - g.apurados) / g.aptos : 0;
+      raio = 5 + 20 * Math.sqrt((g.aptos || 0) / maxAptos);
+      cor = "#EF4444";
+      opac = Math.min(0.85, 0.15 + taxa * 2.2);
+    } else if(modoMapa === "ranking" && sqs.length){
       var lider = null, mv = -1;
       sqs.forEach(function(sq, i){
         var v = g.porSq[sq] || 0;
@@ -819,6 +903,13 @@ function desenhaMapa(sc){
         linhasPop.push(esc(c ? c.n : sq) + ": " + num(g.porSq[sq] || 0));
       });
     }
+    if(modoMapa === "abstencao" && g.aptos){
+      linhasPop.push("Aptos: <b>" + num(g.aptos) + "</b>");
+      linhasPop.push("Comparecimento: " + num(g.apurados) + " (" +
+        pct(g.apurados, g.aptos) + ")");
+      linhasPop.push("Abstenção: <b>" +
+        pct(g.aptos - g.apurados, g.aptos) + "</b>");
+    }
     var conteudo = linhasPop.filter(function(x){ return x; })
       .join("<br>");
     // hover mostra tudo sem clique; o clique (popup) continua valendo
@@ -829,6 +920,142 @@ function desenhaMapa(sc){
     marca.addTo(mapa);
   });
   mapa.fitBounds(limites, {padding: [30, 30]});
+}
+
+/* ---------------- custo do voto ---------------- */
+function desenhaCusto(f){
+  ajustaTurnos({turnos: [1]});
+  aviso("");
+  var municipal = (paginaAtual().cargo === 11 ||
+                   paginaAtual().cargo === 13);
+  var linhas = f.l;
+  if(municipal && estado.mun){
+    linhas = linhas.filter(function(ln){
+      return String(ln[2]) === String(estado.mun);
+    });
+  }
+  var ordens = {
+    votos: function(a, b){ return b[6] - a[6]; },
+    custo_menor: function(a, b){
+      return (a[10] === null) - (b[10] === null) ||
+             (a[10] || 0) - (b[10] || 0); },
+    custo_maior: function(a, b){
+      return (a[10] === null) - (b[10] === null) ||
+             (b[10] || 0) - (a[10] || 0); },
+    despesa: function(a, b){
+      return (b[9] || 0) - (a[9] || 0); }
+  };
+  linhas = linhas.slice().sort(ordens[ordemCusto] || ordens.votos);
+  var totalD = 0, semC = 0;
+  linhas.forEach(function(ln){
+    totalD += ln[9] || 0;
+    if(ln[11] === "sem contas") semC += 1;
+  });
+  var corte = linhas.length > 300;
+  if(corte){
+    aviso("Exibindo 300 de " + num(linhas.length) +
+      " candidaturas do recorte.");
+  }
+  var mostra = linhas.slice(0, 300);
+  var h = ['<div class="modo-botoes nao-imprime">'];
+  [["votos", "Mais votos"], ["custo_menor", "Menor R$/voto"],
+   ["custo_maior", "Maior R$/voto"], ["despesa", "Maior despesa"]]
+    .forEach(function(m2){
+      h.push('<button data-acao="ordem-custo" data-ordem="' + m2[0] +
+        '"' + (ordemCusto === m2[0] ? ' class="ativo"' : "") + ">" +
+        m2[1] + "</button>");
+    });
+  h.push("</div>");
+  h.push("<table><thead><tr><th>Candidato</th><th>Partido</th>",
+    "<th>Município</th><th>Situação</th>",
+    '<th class="num">Votos</th><th class="num">Despesa</th>',
+    '<th class="num">R$/voto</th><th>Contas</th></tr></thead><tbody>');
+  mostra.forEach(function(ln){
+    h.push("<tr><td>" + esc(ln[0]) + "</td>");
+    h.push("<td>" + esc(ln[1]) + "</td>");
+    h.push("<td>" + esc(ln[3] || "(estadual)") + "</td>");
+    h.push("<td>" + situHtml(ln[4]) + "</td>");
+    h.push('<td class="num">' + num(ln[6]) +
+      (ln[7] ? " <small>(1º+2º t)</small>" : "") + "</td>");
+    h.push('<td class="num">' + dinheiro(ln[9]) + "</td>");
+    h.push('<td class="num"><b>' + dinheiro(ln[10]) + "</b></td>");
+    h.push("<td>" + (ln[11] === "sem contas"
+      ? '<span class="situ situ-outro">SEM CONTAS</span>'
+      : "com contas") + "</td></tr>");
+  });
+  h.push("</tbody></table>");
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Despesas declaradas ao TSE (prestação de ' +
+    "contas da campanha inteira) divididas pelos votos de 1º + 2º " +
+    'turno. "SEM CONTAS" inclui candidaturas anuladas com votos ' +
+    "apurados — não é custo zero.</div>");
+  el("pg-tabela").innerHTML = h.join("");
+  el("pg-lateral").innerHTML =
+    '<div class="cartao"><div class="kpi">' + dinheiro(totalD) +
+    '</div><div class="kpi-rotulo">despesa declarada no recorte' +
+    "</div></div>" +
+    kpi(linhas.length, "candidaturas no recorte") +
+    kpi(semC, "sem prestação de contas");
+}
+
+/* ---------------- perfil do voto ---------------- */
+function desenhaPerfilVoto(f, sqsPV){
+  ajustaTurnos({turnos: [1]});
+  var sqs = sqsPV.filter(function(sq){ return f.c[sq]; });
+  if(!sqs.length){
+    el("pg-tabela").innerHTML = "";
+    el("pg-lateral").innerHTML = "";
+    aviso("Os candidatos marcados não têm perfil neste recorte.");
+    return;
+  }
+  aviso("");
+  var h = [];
+  ["genero", "faixa", "escol"].forEach(function(dim){
+    var cats = {};
+    sqs.forEach(function(sq){
+      ((f.c[sq].d || {})[dim] || []).forEach(function(par){
+        cats[par[0]] = cats[par[0]] || {};
+        cats[par[0]][sq] = par[1];
+      });
+    });
+    var lista = Object.keys(cats).sort(function(a, b){
+      return (cats[b][sqs[0]] || 0) - (cats[a][sqs[0]] || 0);
+    });
+    if(!lista.length) return;
+    h.push('<h3 style="margin:14px 0 6px">' + DIM_TITULO[dim] +
+      "</h3>");
+    h.push("<table><thead><tr><th>Categoria</th>");
+    sqs.forEach(function(sq){
+      h.push('<th class="num">' + esc(f.c[sq].n) + "</th>" +
+        '<th class="c-bar"></th>');
+    });
+    h.push("</tr></thead><tbody>");
+    lista.forEach(function(cat){
+      h.push("<tr><td>" + esc(cat) + "</td>");
+      sqs.forEach(function(sq){
+        var v = cats[cat][sq] || 0;
+        h.push('<td class="num">' +
+          (100 * v).toLocaleString("pt-BR",
+            {minimumFractionDigits: 1, maximumFractionDigits: 1}) +
+          "%</td>");
+        h.push('<td class="c-bar">' + barra(v, 1) + "</td>");
+      });
+      h.push("</tr>");
+    });
+    h.push("</tbody></table>");
+  });
+  h.push('<div style="margin-top:10px;font-size:12.5px;' +
+    'color:var(--tinta2)">Perfil do ELEITORADO APTO das seções onde ' +
+    "o candidato recebeu votos, ponderado pelos votos dele em cada " +
+    "seção (1º turno). É uma medida descritiva do território do voto " +
+    "— não identifica o voto de ninguém: o voto é secreto.</div>");
+  el("pg-tabela").innerHTML = h.join("");
+  var lat = [];
+  sqs.forEach(function(sq){
+    lat.push(kpi(f.c[sq].v || 0, "votos cobertos — " + f.c[sq].n +
+      " (" + (f.c[sq].p || "") + ")"));
+  });
+  el("pg-lateral").innerHTML = lat.join("");
 }
 
 /* ---------------- panorama do município ---------------- */
@@ -877,8 +1104,31 @@ function desenhaPanorama(f){
     "apto; brancos + nulos sobre o comparecimento.</div>");
   el("pg-tabela").innerHTML = h.join("");
   var ult = d["2024"] || d["2022"] || d["2020"];
-  el("pg-lateral").innerHTML =
-    kpi(ult ? ult[0] : 0, "eleitores aptos no pleito mais recente");
+  var lat2 = [kpi(ult ? ult[0] : 0,
+                  "eleitores aptos no pleito mais recente")];
+  var anoP = null;
+  ["2024", "2022", "2020"].forEach(function(a){
+    if(!anoP && d[a] && d[a][7]) anoP = a;
+  });
+  if(anoP){
+    ["genero", "faixa", "escol"].forEach(function(dim){
+      var lista = d[anoP][7][dim] || [];
+      if(!lista.length) return;
+      var hb = ['<div class="cartao rolagem"><div style="font-weight:' +
+        '700;margin-bottom:6px">' + DIM_TITULO[dim] +
+        " do eleitorado (" + anoP + ")</div><table><tbody>"];
+      lista.forEach(function(par){
+        hb.push("<tr><td>" + esc(par[0]) + '</td><td class="num">' +
+          (100 * par[1]).toLocaleString("pt-BR",
+            {minimumFractionDigits: 1, maximumFractionDigits: 1}) +
+          '%</td><td class="c-bar">' + barra(par[1], 1) +
+          "</td></tr>");
+      });
+      hb.push("</tbody></table></div>");
+      lat2.push(hb.join(""));
+    });
+  }
+  el("pg-lateral").innerHTML = lat2.join("");
 }
 
 /* ------- mini-mapa ao passar o mouse no nome do candidato ------- */
@@ -1393,9 +1643,10 @@ document.addEventListener("click", function(ev){
       } else if(estado[campo] === alvo.dataset.sq){ estado[campo] = null; }
     } else {
       if(alvo.checked){
-        if(Object.keys(estado.sel).length >= MAX_SEL){
+        var teto = (p.tipo === "perfilvoto") ? 2 : MAX_SEL;
+        if(Object.keys(estado.sel).length >= teto){
           alvo.checked = false;
-          aviso("Máximo de " + MAX_SEL + " candidatos por comparação. " +
+          aviso("Máximo de " + teto + " candidatos nesta tela. " +
             "Desmarque um para escolher outro.");
           return;
         }
@@ -1414,6 +1665,10 @@ document.addEventListener("click", function(ev){
   }
   else if(acao === "modo-mapa"){
     modoMapa = alvo.dataset.modo;
+    consultar();
+  }
+  else if(acao === "ordem-custo"){
+    ordemCusto = alvo.dataset.ordem;
     consultar();
   }
   else if(acao === "imprimir"){ window.print(); }
