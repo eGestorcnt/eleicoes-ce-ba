@@ -334,15 +334,29 @@ function consultar(){
         });
     }
   } else if(p.tipo === "custo"){
-    pega("d/cv/" + estado.ano + "_" + estado.uf + "_" + p.cargo +
-         ".json").then(guarda(desenhaCusto)).catch(function(e){
-      if(id !== reqAtual) return;
+    // cargo municipal tem um arquivo POR MUNICÍPIO (o do estado todo
+    // chegava a 9,3 MB); sem município escolhido, pede o município
+    var municipalCv = (p.cargo === 11 || p.cargo === 13);
+    if(municipalCv && !estado.mun){
       el("pg-tabela").innerHTML = "";
       el("pg-lateral").innerHTML = "";
-      aviso((e && e.semDados)
-        ? "Os dados de prestação de contas ainda não foram publicados."
-        : "Falha ao carregar: " + (e ? e.message : "?"));
-    });
+      aviso("Selecione o município para ver o custo do voto de " +
+        (idx.cargos[p.cargo] || "").toLowerCase() + ".");
+    } else {
+      var arqCv = municipalCv
+        ? "d/cv/" + estado.mun + "_" + estado.ano + "_" + p.cargo +
+          ".json"
+        : "d/cv/" + estado.ano + "_" + estado.uf + "_" + p.cargo +
+          ".json";
+      pega(arqCv).then(guarda(desenhaCusto)).catch(function(e){
+        if(id !== reqAtual) return;
+        el("pg-tabela").innerHTML = "";
+        el("pg-lateral").innerHTML = "";
+        aviso((e && e.semDados)
+          ? "Os dados de prestação de contas ainda não foram publicados."
+          : "Falha ao carregar: " + (e ? e.message : "?"));
+      });
+    }
   } else if(p.tipo === "perfilvoto"){
     var sqsPV = Object.keys(estado.sel).slice(0, 2);
     var municipal = (p.cargo === 11 || p.cargo === 13);
@@ -510,15 +524,22 @@ function desenhaCidade(mn){
   });
   h.push("</tbody></table>");
   h.push('<div style="margin-top:10px;font-size:12.5px;' +
-    'color:var(--tinta2)">Urbana e rural saem do SUFIXO DO ENDEREÇO ' +
-    "do local de votação, como o TSE publica. Local sem essa " +
-    "indicação não entra em nenhuma das duas colunas — por isso a " +
-    "soma delas pode ficar abaixo do total.</div>");
+    'color:var(--tinta2)">' + ((totalU + totalR) === 0 && total > 0
+      ? "<b>O TSE não indica zona urbana ou rural nos endereços deste " +
+        "recorte</b> — as duas colunas ficam zeradas por falta do " +
+        "dado, não por ausência de votos. A marca existe na Bahia; " +
+        "no Ceará e em São Paulo o cadastro de locais quase não a traz."
+      : "Urbana e rural saem do SUFIXO DO ENDEREÇO do local de " +
+        "votação, como o TSE publica. Local sem essa indicação não " +
+        "entra em nenhuma das duas colunas — por isso a soma delas " +
+        "pode ficar abaixo do total.") + "</div>");
   el("pg-tabela").innerHTML = h.join("");
   var lat = [kpi(total, "votos dos candidatos selecionados"),
     kpi(totalU, "votos em zona urbana (" + pct(totalU, total) + ")"),
     kpi(totalR, "votos em zona rural (" + pct(totalR, total) + ")")];
-  var semInd = total - totalU - totalR;
+  // endereço anômalo do TSE pode casar as duas marcas; sem o piso o
+  // cartão sairia negativo
+  var semInd = Math.max(0, total - totalU - totalR);
   if(semInd > 0){
     lat.push(kpi(semInd, "sem indicação de área no endereço"));
   }
@@ -598,15 +619,26 @@ function desenhaSecao(sc){
   var res = resumosDeSecao(sc, mapa, total);
   estado.ultimo = {tipo: "secao", linhas: linhas, total: total,
                    resumos: res};
-  aviso("");
+  // a capital de SP tem 26.513 seções: jogar tudo de uma vez no
+  // innerHTML trava o navegador (pior no celular). Mostrar as mais
+  // votadas, como o ranking já faz, e dizer que há mais.
+  var TETO_SECOES = 500;
+  aviso(linhas.length > TETO_SECOES
+    ? "Exibindo as " + num(TETO_SECOES) + " seções de maior votação, "
+      + "de " + num(linhas.length) + ". Use o filtro de candidato "
+      + "para estreitar o recorte."
+    : "");
+  var mostra = linhas.slice(0, TETO_SECOES);
   var max = linhas.length ? linhas[0].votos : 0;
   var h = ['<table><thead><tr><th class="num">Zona</th>',
     '<th class="num">Seção</th><th>Local de votação</th><th>Endereço</th>',
     '<th class="num">Votos</th><th class="c-bar"></th>',
     '<th class="num">% do total</th></tr></thead><tbody>'];
-  linhas.forEach(function(ln){
-    h.push('<tr><td class="num">' + num(ln.zona) + "</td>");
-    h.push('<td class="num">' + num(ln.secao) + "</td>");
+  mostra.forEach(function(ln){
+    // zona e seção são IDENTIFICAÇÃO: sem separador de milhar, senão a
+    // seção 1050 vira "1.050"
+    h.push('<tr><td class="num">' + esc(ln.zona) + "</td>");
+    h.push('<td class="num">' + esc(ln.secao) + "</td>");
     h.push("<td>" + esc(ln.local) + "</td>");
     h.push('<td style="color:#8A93A8">' + esc(ln.ende) + "</td>");
     h.push('<td class="num"><b>' + num(ln.votos) + "</b></td>");
@@ -727,8 +759,8 @@ function desenhaComparativoSecao(sc){
   h.push(tabelaComparativa(colunas, linhas,
     ['<th class="num">Zona</th>', '<th class="num">Seção</th>',
      "<th>Local</th>"], function(ln){
-      return ['<td class="num">' + num(ln.zona) + "</td>",
-              '<td class="num">' + num(ln.secao) + "</td>",
+      return ['<td class="num">' + esc(ln.zona) + "</td>",
+              '<td class="num">' + esc(ln.secao) + "</td>",
               "<td>" + esc(ln.local) + "</td>"]; }));
   el("pg-tabela").innerHTML = h.join("");
   el("pg-lateral").innerHTML = cartoesColunas(colunas);
@@ -1067,14 +1099,9 @@ function desenhaEvolucao(f){
 function desenhaCusto(f){
   ajustaTurnos({turnos: [1]});
   aviso("");
-  var municipal = (paginaAtual().cargo === 11 ||
-                   paginaAtual().cargo === 13);
+  // o arquivo municipal já vem só com o município escolhido; o
+  // estadual (Gov/Sen/Deputados) vem inteiro, como deve
   var linhas = f.l;
-  if(municipal && estado.mun){
-    linhas = linhas.filter(function(ln){
-      return String(ln[2]) === String(estado.mun);
-    });
-  }
   var ordens = {
     votos: function(a, b){ return b[6] - a[6]; },
     custo_menor: function(a, b){
@@ -1613,8 +1640,8 @@ function desenhaCasadinhaTabela(lista, base, ce, cf, tE, tF, tC, r){
   lista.forEach(function(g){
     h.push("<tr>");
     if(base === "secao"){
-      h.push('<td class="num">' + num(g.zona) + "</td>");
-      h.push('<td class="num">' + num(g.secao) + "</td>");
+      h.push('<td class="num">' + esc(g.zona) + "</td>");
+      h.push('<td class="num">' + esc(g.secao) + "</td>");
       h.push("<td>" + esc(g.local) + "</td>");
     } else { h.push("<td>" + esc(g.nome) + "</td>"); }
     h.push('<td class="num">' + num(g.est) + "</td>");
