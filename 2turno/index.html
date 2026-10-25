@@ -11,8 +11,9 @@ tbody tr:nth-child(even) td{background:#F0F0F0}
 .rola>table{min-width:1500px}
 .rola>table.medio{min-width:1050px}
 .rola>table.estreito{min-width:640px}
-.rola>table#t-mun-cel{min-width:0}
+.rola>table#t-mun-cel,.rola>table#t-reg-cel{min-width:0}
 .ufl{color:inherit;text-decoration:none;white-space:nowrap}
+.reg-ufs .ufl{display:inline-block;margin:1px 6px 1px 0}
 #cidades{display:none}
 @media print{body.com-cidades #conteudo{display:none !important}body.com-cidades #cidades{display:block}}
 .rola>table#t-cel{min-width:0}
@@ -124,11 +125,13 @@ body.modo-pdf{margin:0;font-size:7pt}
   .so-celular{display:block}
   body:not(.completa) .so-largo{display:none}
   .botao-completa{display:inline-block;margin:8px 0;background:#fff;border:1px solid #CBD5E1;border-radius:6px;padding:8px 14px;font:600 13px 'Segoe UI',system-ui,Arial,sans-serif}
-  #t-cel td,#t-cel th,#t-mun-cel td,#t-mun-cel th{padding:8px 4px;font-size:12px}
-  #t-cel th,#t-mun-cel th{white-space:nowrap;font-size:10px}
-  #t-cel td:last-child,#t-mun-cel td:last-child{white-space:nowrap;font-size:11.5px;padding-left:2px}
+  #t-cel td,#t-cel th,#t-mun-cel td,#t-mun-cel th,#t-reg-cel td,#t-reg-cel th{padding:8px 4px;font-size:12px}
+  #t-cel th,#t-mun-cel th,#t-reg-cel th{white-space:nowrap;font-size:10px}
+  #t-cel td:last-child,#t-mun-cel td:last-child,#t-reg-cel td:last-child{white-space:nowrap;font-size:11.5px;padding-left:2px}
+  #t-reg-cel tr:not(.tot) td:first-child{white-space:nowrap}
+  #t-cel tr.tot td,#t-reg-cel tr.tot td{font-size:11px;padding-left:2px;padding-right:2px}
   #t-mun-cel td:first-child{white-space:normal;font-size:12px}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "turno": 2, "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 2º TURNO · 25/10/2026", "titulo": "Eleição para Presidente da República — 2º turno — 25/10/2026", "arquivo": "monitor_2turno_presidente", "pagina": "Apuração 2º turno — Presidente 2026", "data": "25/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792937721"></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "turno": 2, "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 2º TURNO · 25/10/2026", "titulo": "Eleição para Presidente da República — 2º turno — 25/10/2026", "arquivo": "monitor_2turno_presidente", "pagina": "Apuração 2º turno — Presidente 2026", "data": "25/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792938761"></script></body></html>

@@ -17,6 +17,14 @@ var NUCLEO = (function () {
   var EXTERIOR = "zz";
   var PARTES = UFS.concat([EXTERIOR]);
   var ARQUIVOS = ["br"].concat(PARTES);
+  // regiões do IBGE; o exterior fica como região à parte para a soma bater com o Brasil
+  var REGIOES = [["Norte", ["ac", "am", "ap", "pa", "ro", "rr", "to"]],
+                 ["Nordeste", ["al", "ba", "ce", "ma", "pb", "pe", "pi", "rn", "se"]],
+                 ["Centro-Oeste", ["df", "go", "ms", "mt"]],
+                 ["Sudeste", ["es", "mg", "rj", "sp"]],
+                 ["Sul", ["pr", "rs", "sc"]],
+                 ["Exterior", ["zz"]]];
+  var SOMA = ["ts", "st", "te", "est", "esnt", "c", "a", "tv", "vv", "vb", "tvn"];
 
   function inteiro(x) {
     var n = parseInt(String(x == null ? "0" : x).trim() || "0", 10);
@@ -93,6 +101,27 @@ var NUCLEO = (function () {
     return r;
   }
 
+  // soma das UFs da região (mesmos campos do arquivo do TSE) e os mesmos cálculos de uma UF;
+  // UF sem leitura fica em "faltam" e a soma é PARCIAL
+  function somaRegiao(linhas, ufs) {
+    var base = null, faltam = [];
+    ufs.forEach(function (uf) {
+      var d = linhas[uf];
+      if (!d) { faltam.push(uf); return; }
+      if (!base) {
+        base = { abr: "", dg: "", hg: "", ordem: d.ordem.slice(), votos: {}, situacao: {}, numero: Object.assign({}, d.numero), sq: {} };
+        SOMA.forEach(function (k) { base[k] = 0; });
+      }
+      SOMA.forEach(function (k) { base[k] += d[k] || 0; });
+      d.ordem.forEach(function (nm) { base.votos[nm] = (base.votos[nm] || 0) + (d.votos[nm] || 0); });
+    });
+    if (!base) return null;
+    var r = calcula(base);
+    r.faltam = faltam;
+    r.estados = ufs.filter(function (uf) { return uf !== "zz"; });
+    return r;
+  }
+
   function somaProjecao(linhas) {
     var t = { proj: {}, proj_validos: 0, por_vir: 0, por_apurar: 0, faltam: [] };
     PARTES.forEach(function (uf) {
@@ -153,11 +182,13 @@ var NUCLEO = (function () {
       var u = ultimo[uf] || {};
       leitura[uf] = { lido_em: u.lido_em || "", falha: u.falha || "" };
     });
-    return { br: dados.br ? calcula(dados.br, ref) : null, linhas: linhas, ordem: base.ordem,
+    var regioes = REGIOES.map(function (rg) { return { nome: rg[0], ufs: rg[1], r: somaRegiao(linhas, rg[1]) }; });
+    return { br: dados.br ? calcula(dados.br, ref) : null, linhas: linhas, ordem: base.ordem, regioes: regioes,
              proj_br: somaProjecao(linhas), conf: conferencia(dados.br, partes), leitura: leitura };
   }
 
-  return { UFS: UFS, EXTERIOR: EXTERIOR, PARTES: PARTES, ARQUIVOS: ARQUIVOS, inteiro: inteiro, extrai: extrai,
+  return { UFS: UFS, EXTERIOR: EXTERIOR, PARTES: PARTES, ARQUIVOS: ARQUIVOS, REGIOES: REGIOES, somaRegiao: somaRegiao,
+           inteiro: inteiro, extrai: extrai,
            pct: pct, lider: lider, referencia: referencia, calcula: calcula, somaProjecao: somaProjecao,
            conferencia: conferencia, monta: monta, principais: principais };
 })();
@@ -436,6 +467,57 @@ if (typeof document !== "undefined") (function (N) {
       N.UFS.map(function (uf) { return linha(ufLink(uf), m.linhas[uf]); }).join("") +
       linha(ufLink("zz", "EXTERIOR"), m.linhas.zz, "fixa") + linha(band("br") + "BRASIL", m.br, "tot") + "</tbody></table>";
   }
+  function quadroRegioes(m) {
+    var ab = par(m);
+    function lidera(r, nm) {
+      return (r.estados || []).filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === nm; }).length;
+    }
+    function leitura(x) {
+      return x.r && x.r.faltam.length ? '<span class="falha">PARCIAL</span> — sem leitura de ' +
+        x.r.faltam.map(function (u) { return u.toUpperCase(); }).join(", ") : "OK";
+    }
+    var lista = m.regioes.concat([{ nome: "TOTAL BRASIL", ufs: [], r: m.br, tot: true }]);
+    var cel = lista.map(function (x) {
+      var cls = x.tot ? ' class="tot"' : "", r = x.r;
+      var nome = '<td class="l">' + (x.tot ? "BRASIL" : esc(x.nome)) + "</td>";
+      if (!r) return "<tr" + cls + ">" + nome + '<td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
+      return "<tr" + cls + ">" + nome + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%"); }).join("") +
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
+    }).join("");
+    var larga = lista.map(function (x) {
+      var cls = x.tot ? ' class="tot"' : "", r = x.r;
+      var nome = '<td class="l">' + esc(x.nome) + "</td>";
+      // por região, só as siglas (sem bandeira), ainda clicáveis para abrir os municípios
+      var estados = '<td class="l reg-ufs">' + (x.tot ? "27 UFs + exterior" : x.ufs.map(function (uf) {
+        return '<a class="ufl" href="#cidades-' + uf + '" data-acao="cidades" data-uf="' + uf + '" title="Ver por município — ' +
+          esc(nomeUf(uf)) + '">' + (uf === "zz" ? "EXTERIOR" : uf.toUpperCase()) + "</a>";
+      }).join(", ")) + "</td>";
+      if (!r) return "<tr" + cls + ">" + nome + estados + '<td colspan="13" class="l">FALHA NA LEITURA</td></tr>';
+      var na = x.tot ? N.UFS.filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === ab[0]; }).length : lidera(r, ab[0]);
+      var nb = x.tot ? N.UFS.filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === ab[1]; }).length : lidera(r, ab[1]);
+      return "<tr" + cls + ">" + nome + estados +
+        tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.te) +
+        tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) +
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%"); }).join("") +
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) +
+        '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
+        '<td class="l">' + (x.nome === "Exterior" ? "—" : esc(curto(ab[0])) + " " + na + " · " + esc(curto(ab[1])) + " " + nb) + "</td>" +
+        '<td class="l">' + (x.tot ? "OK" : leitura(x)) + "</td></tr>";
+    }).join("");
+    return '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-reg-cel"><colgroup>' +
+      '<col style="width:24%"><col style="width:16%"><col style="width:13%"><col style="width:13%"><col style="width:34%"></colgroup>' +
+      "<thead><tr><th>Região</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) +
+      "</th><th>Diferença</th></tr></thead><tbody>" + cel + "</tbody></table></div></div>" +
+      '<div class="rola so-largo"><table class="ord medio" id="t-reg"><colgroup><col style="width:8%"><col style="width:14%">' +
+      '<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:5%"><col style="width:6%"><col style="width:5%">' +
+      '<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:5%"><col style="width:6%">' +
+      '<col style="width:5%"></colgroup><thead><tr><th>Região</th><th>Estados</th><th>Seções totalizadas</th><th>Aptos</th>' +
+      "<th>Compare&shy;ceram</th><th>% comp.</th><th>Abstenção</th><th>% abst.</th><th>Válidos</th><th>" + esc(curto(ab[0])) +
+      "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th><th>Líder</th><th>Estados à frente</th><th>Leitura</th>" +
+      "</tr></thead><tbody>" + larga + "</tbody></table></div>";
+  }
+
   function linhaProj(rot, r, m, classe, pctSec, base) {
     var ab = par(m), cls = classe ? ' class="' + classe + '"' : "";
     var cp = pctSec === null || pctSec === undefined ? '<td class="n" data-v="">—</td>' : tdN(pctSec, brp(pctSec) + "%");
@@ -558,6 +640,7 @@ if (typeof document !== "undefined") (function (N) {
       '<section class="so-tela">' + painelBrasil(m) + "</section>" +
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
+      "<h2>Por região</h2>" + quadroRegioes(m) +
       '<h2>Por estado</h2><div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
