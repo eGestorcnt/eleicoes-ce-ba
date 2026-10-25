@@ -392,7 +392,7 @@ if (typeof document !== "undefined") (function (N) {
   // então pedir a cada 5 s pega a versão nova logo que sai, sem pesar no TSE
   var INTERVALO = 5;
   var COR = { "13": "#C62828", "22": "#1D4ED8" };
-  var ultimo = {}, anterior = {}, alertas = [], alertados = {}, evolucao = [];
+  var ultimo = {}, anterior = {}, alertas = [], alertados = {}, evolucao = [], evoUf = {};
   // evolução e alertas ficam guardados NESTE navegador (recarregar a página não apaga); só conveniência:
   // sem localStorage (aba anônima, bloqueio), a página segue funcionando com o que viu desde que abriu
   var CHAVE_HIST = "hist:" + CFG.eleicao;
@@ -400,13 +400,17 @@ if (typeof document !== "undefined") (function (N) {
     var salvo = JSON.parse(localStorage.getItem(CHAVE_HIST) || "null");
     if (salvo && salvo.v === 1) {
       evolucao = salvo.evolucao || []; alertas = salvo.alertas || []; alertados = salvo.alertados || {};
+      evoUf = salvo.evo_uf || {};
     }
   } catch (e) {}
   function guardaHistorico() {
     try {
       var chaves = Object.keys(alertados).slice(-3000), a = {};
       chaves.forEach(function (k) { a[k] = 1; });
-      localStorage.setItem(CHAVE_HIST, JSON.stringify({ v: 1, evolucao: evolucao.slice(-2000), alertas: alertas.slice(-300), alertados: a }));
+      var base = { v: 1, evolucao: evolucao.slice(-2000), alertas: alertas.slice(-300), alertados: a }, eu = {};
+      Object.keys(evoUf).forEach(function (uf) { eu[uf] = evoUf[uf].slice(-400); });
+      try { localStorage.setItem(CHAVE_HIST, JSON.stringify(Object.assign({ evo_uf: eu }, base))); }
+      catch (e) { localStorage.setItem(CHAVE_HIST, JSON.stringify(base)); }
     } catch (e) {}
   }
   var est = {}, CHAVE = "ordem2t";
@@ -516,7 +520,13 @@ if (typeof document !== "undefined") (function (N) {
                          tse: r.dg + " " + r.hg });
         }
       }
-      if (r) anterior[uf] = r;
+      if (r) {
+        anterior[uf] = r;
+        var eu = evoUf[uf] || (evoUf[uf] = []), hu = eu[eu.length - 1];
+        if (!hu || hu.st !== r.st || hu.tv !== r.tv) {
+          eu.push({ leitura: hora(agora), st: r.st, tv: r.tv, pct_sec: r.pct_sec, vv: r.vv, votos: Object.assign({}, r.votos) });
+        }
+      }
     });
     var b = m.br, h = evolucao[evolucao.length - 1];
     if (b && (!h || h.st !== b.st || h.tv !== b.tv)) {
@@ -578,22 +588,25 @@ if (typeof document !== "undefined") (function (N) {
   // ---- gráfico da evolução no Brasil: % dos válidos de cada um × % das seções totalizadas, com as leituras
   // guardadas NESTE navegador (o TSE não publica histórico). Passar o mouse/dedo mostra a leitura mais próxima;
   // a tabela "Evolução no Brasil" mais abaixo é a mesma informação em texto.
-  var EVO = { pts: [], ab: [], px: [], py: {}, W: 600, num: {} };
+  var EVOS = {};
   function passo(span, alvo) {
     var cand = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25];
     for (var i = 0; i < cand.length; i++) if (span / cand[i] <= alvo) return cand[i];
     return 50;
   }
   function graficoEvolucao(m) {
-    var b = m.br, ab = par(m), conc = b.ts && b.st >= b.ts;
-    var pts = evolucao.filter(function (x) { return x.st > 0 && x.pct && x.tv > 0; });
+    return graficoEvo("br", evolucao, par(m), m.br.numero, m.br.ts && m.br.st >= m.br.ts, "Evolução — % dos válidos");
+  }
+  function graficoEvo(id, lista, ab, numero, conc, titulo) {
+    var b = { numero: numero };
+    var pts = lista.filter(function (x) { return x.st > 0 && x.pct && x.tv > 0; });
     if (conc && pts.length < 2) return "";
     var leg = ab.map(function (nm) {
       return '<span><i style="background:' + cor(b, nm) + '"></i>' + esc(curto(nm)) + "</span>";
     }).join("");
-    var cab = '<div class="evo-cab"><span class="rotulo">Evolução — % dos válidos</span><span class="evo-leg">' + leg + "</span></div>";
+    var cab = '<div class="evo-cab"><span class="rotulo">' + esc(titulo) + '</span><span class="evo-leg">' + leg + "</span></div>";
     if (pts.length < 2) {
-      return '<div class="evo">' + cab + '<p class="evo-vazio">O gráfico se forma a partir da 2ª leitura com seções novas. ' +
+      return '<div class="evo" data-evo="' + id + '">' + cab + '<p class="evo-vazio">O gráfico se forma a partir da 2ª leitura com seções novas. ' +
         "As leituras ficam guardadas neste navegador.</p></div>";
     }
     var cx = document.getElementById("conteudo");
@@ -640,24 +653,22 @@ if (typeof document !== "undefined") (function (N) {
     g += '<line class="evo-x" x1="0" x2="0" y1="' + T + '" y2="' + (T + h) + '" style="display:none"/>' + ab.map(function (nm, i) {
       return '<circle class="evo-p" data-i="' + i + '" r="5" fill="' + cor(b, nm) + '" style="display:none"/>';
     }).join("") + '<rect class="evo-alvo" x="' + L + '" y="' + T + '" width="' + w + '" height="' + h + '"/>';
-    EVO = { pts: pts, ab: ab, px: px, py: py, W: W, num: b.numero };
+    EVOS[id] = { pts: pts, ab: ab, px: px, py: py, W: W, num: b.numero };
     var ini = pts[0];
-    return '<div class="evo">' + cab + '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Evolução do percentual dos ' +
+    return '<div class="evo" data-evo="' + id + '">' + cab + '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Evolução do percentual dos ' +
       "válidos de " + esc(ab.map(curto).join(" e ")) + ", de " + brp(ini.pct_sec) + "% a " + brp(pts[pts.length - 1].pct_sec) +
       '% das seções totalizadas">' + g + '</svg><div class="evo-dica"></div><div class="evo-nota">' + br(pts.length) +
       " leituras guardadas neste navegador, desde " + esc(ini.leitura) + " (" + brp(ini.pct_sec) + "% das seções)</div></div>";
   }
   function mostraEvo(ev) {
     var svg = ev.target && ev.target.closest ? ev.target.closest(".evo svg") : null;
-    var caixa = document.querySelector(".evo");
-    if (!caixa) return;
+    var caixa = svg ? svg.closest(".evo") : null, EVO = caixa ? EVOS[caixa.getAttribute("data-evo")] : null;
+    document.querySelectorAll(".evo").forEach(function (c) {
+      if (c === caixa && EVO) return;
+      c.querySelectorAll(".evo-dica, .evo-x, .evo-p").forEach(function (el) { el.style.display = "none"; });
+    });
+    if (!caixa || !EVO || !EVO.pts.length) return;
     var dica = caixa.querySelector(".evo-dica"), linha = caixa.querySelector(".evo-x"), pts = caixa.querySelectorAll(".evo-p");
-    if (!svg || !EVO.pts.length) {
-      if (dica) dica.style.display = "none";
-      if (linha) linha.style.display = "none";
-      Array.prototype.forEach.call(pts, function (p) { p.style.display = "none"; });
-      return;
-    }
     var r = svg.getBoundingClientRect(), esc_ = r.width / EVO.W, xv = (ev.clientX - r.left) / esc_, i = 0;
     EVO.px.forEach(function (x, k) { if (Math.abs(x - xv) < Math.abs(EVO.px[i] - xv)) i = k; });
     var x = EVO.pts[i], ab = EVO.ab;
@@ -1253,6 +1264,21 @@ if (typeof document !== "undefined") (function (N) {
     var a = document.getElementById("cid-wa");
     if (a) a.href = "https://wa.me/?text=" + encodeURIComponent(textoCidades() + " " + urlCidades());
   }
+  function graficoUf() {
+    var uf = CID.uf, r = M && M.linhas[uf];
+    if (!r) return "";
+    var lista = (evoUf[uf] || []).map(function (x) {
+      var p = {};
+      Object.keys(x.votos || {}).forEach(function (nm) { p[nm] = N.pct(x.votos[nm], x.vv); });
+      return Object.assign({ pct: p }, x);
+    });
+    var g = graficoEvo("uf", lista, par(M), r.numero || M.br.numero, r.ts && r.st >= r.ts, "Evolução em " + nomeUf(uf) + " — % dos válidos");
+    return g ? '<div class="cartao evo-uf">' + g + "</div>" : "";
+  }
+  function desenhaEvoUf(sempre) {
+    var area = document.getElementById("cid-evo-area"), n = (evoUf[CID.uf] || []).length;
+    if (area && (sempre || CID.evoN !== n)) { CID.evoN = n; area.innerHTML = graficoUf(); }
+  }
   function statusCidades() {
     var falhas = Object.keys(CID.dados).filter(function (cd) { return CID.dados[cd].falha; }).length;
     var conc = M && M.br && M.br.ts && M.br.st >= M.br.ts;
@@ -1263,6 +1289,7 @@ if (typeof document !== "undefined") (function (N) {
     if (a) a.textContent = txt;
     if (b) b.textContent = "Fonte: TSE, arquivos por município. " + txt;
     linkWaCidades();
+    desenhaEvoUf(false);
   }
   function desenhaCidades() {
     var corpo = document.getElementById("cid-corpo");
@@ -1302,7 +1329,7 @@ if (typeof document !== "undefined") (function (N) {
     var resumo = ruf ? '<p class="cab cid-resumo"><b>' + esc(nomeUf(uf)) + ":</b> " + brp(ruf.pct_sec) + "% das seções · " +
       ab.map(function (k) { return esc(curto(k)) + " " + brp(ruf.pct_cand[k] || 0) + "%"; }).join(" × ") + " · " +
       txtDif(ruf.votos, ab[0], ab[1]) + " · líder " + esc(nomeLider(ruf.lider)) + "</p>" : "";
-    corpo.innerHTML = resumo + legendaT1(!!CID.t1) +
+    corpo.innerHTML = resumo + '<section class="so-tela" id="cid-evo-area"></section>' + legendaT1(!!CID.t1) +
       '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-mun-cel"><colgroup><col style="width:30%">' +
       '<col style="width:13%"><col style="width:15%"><col style="width:15%"><col style="width:27%"></colgroup><thead><tr>' +
       "<th>Município</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th>" +
@@ -1315,6 +1342,7 @@ if (typeof document !== "undefined") (function (N) {
       "<th>Compare&shy;ceram</th><th>% comp.</th><th>Abstenção</th><th>% abst.</th><th>Válidos</th><th>Brancos</th><th>Nulos</th><th>" +
       esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th><th>Líder</th><th>Última totaliz.</th>" +
       "<th>Leitura</th></tr></thead><tbody>" + larga + "</tbody></table></div>";
+    desenhaEvoUf(true);
     statusCidades();
     filtraCidades();
     aplica();
