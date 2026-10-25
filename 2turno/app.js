@@ -575,6 +575,108 @@ if (typeof document !== "undefined") (function (N) {
       }).join("") + "</div></div>";
   }
 
+  // ---- gráfico da evolução no Brasil: % dos válidos de cada um × % das seções totalizadas, com as leituras
+  // guardadas NESTE navegador (o TSE não publica histórico). Passar o mouse/dedo mostra a leitura mais próxima;
+  // a tabela "Evolução no Brasil" mais abaixo é a mesma informação em texto.
+  var EVO = { pts: [], ab: [], px: [], py: {}, W: 600, num: {} };
+  function passo(span, alvo) {
+    var cand = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25];
+    for (var i = 0; i < cand.length; i++) if (span / cand[i] <= alvo) return cand[i];
+    return 50;
+  }
+  function graficoEvolucao(m) {
+    var b = m.br, ab = par(m), conc = b.ts && b.st >= b.ts;
+    var pts = evolucao.filter(function (x) { return x.st > 0 && x.pct && x.tv > 0; });
+    if (conc && pts.length < 2) return "";
+    var leg = ab.map(function (nm) {
+      return '<span><i style="background:' + cor(b, nm) + '"></i>' + esc(curto(nm)) + "</span>";
+    }).join("");
+    var cab = '<div class="evo-cab"><span class="rotulo">Evolução — % dos válidos</span><span class="evo-leg">' + leg + "</span></div>";
+    if (pts.length < 2) {
+      return '<div class="evo">' + cab + '<p class="evo-vazio">O gráfico se forma a partir da 2ª leitura com seções novas. ' +
+        "As leituras ficam guardadas neste navegador.</p></div>";
+    }
+    var cx = document.getElementById("conteudo");
+    var W = Math.max(300, Math.min(620, (cx ? cx.clientWidth : 600) - 72)), H = 200;
+    var L = 30, R = 104, T = 8, B = 24, w = W - L - R, h = H - T - B;
+    var xs = pts.map(function (x) { return x.pct_sec; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    if (x1 - x0 < 0.05) { var c = (x0 + x1) / 2; x0 = Math.max(0, c - 0.025); x1 = x0 + 0.05; }
+    var vals = [50];
+    pts.forEach(function (x) { ab.forEach(function (nm) { vals.push(x.pct[nm] || 0); }); });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = Math.max(1, (hi - lo) * 0.15);
+    var sy = passo(hi - lo + 2 * pad, 5);
+    var y0 = Math.max(0, Math.floor((lo - pad) / sy) * sy), y1 = Math.min(100, Math.ceil((hi + pad) / sy) * sy);
+    function X(v) { return L + (v - x0) / (x1 - x0) * w; }
+    function Y(v) { return T + (1 - (v - y0) / (y1 - y0)) * h; }
+    var g = "";
+    for (var v = y0; v <= y1 + 1e-9; v += sy) {
+      g += '<line class="evo-grade" x1="' + L + '" x2="' + (L + w) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/>' +
+        '<text class="evo-eixo" x="' + (L - 6) + '" y="' + (Y(v) + 4).toFixed(1) + '" text-anchor="end">' + Math.round(v) + "%</text>";
+    }
+    var sx = passo(x1 - x0, 4), casas = sx < 0.1 ? 2 : (sx < 1 ? 1 : 0);
+    for (var u = Math.ceil(x0 / sx - 1e-9) * sx; u <= x1 + 1e-9; u += sx) {
+      g += '<text class="evo-eixo" x="' + X(u).toFixed(1) + '" y="' + (T + h + 16) + '" text-anchor="middle">' +
+        u.toFixed(casas).replace(".", ",") + "%</text>";
+    }
+    g += '<text class="evo-eixo" x="' + (L + w) + '" y="' + (T + h + 16) + '" text-anchor="start" dx="6">das seções</text>';
+    if (50 > y0 && 50 < y1) g += '<line class="evo-50" x1="' + L + '" x2="' + (L + w) + '" y1="' + Y(50).toFixed(1) + '" y2="' + Y(50).toFixed(1) + '"/>';
+    var px = pts.map(function (x) { return X(x.pct_sec); }), py = {}, fim = [];
+    ab.forEach(function (nm) {
+      py[nm] = pts.map(function (x) { return Y(x.pct[nm] || 0); });
+      g += '<path class="evo-linha" stroke="' + cor(b, nm) + '" d="' + px.map(function (x, i) {
+        return (i ? "L" : "M") + x.toFixed(1) + "," + py[nm][i].toFixed(1);
+      }).join("") + '"/>';
+      var n = pts.length - 1;
+      g += '<circle class="evo-fim" cx="' + px[n].toFixed(1) + '" cy="' + py[nm][n].toFixed(1) + '" r="4" fill="' + cor(b, nm) + '"/>';
+      fim.push({ nm: nm, y: py[nm][n], t: curto(nm) + " " + brp(pts[n].pct[nm] || 0) + "%" });
+    });
+    // rótulos diretos no fim de cada linha, afastados quando ficariam um sobre o outro
+    fim.sort(function (p, q) { return p.y - q.y; });
+    for (var k = 1; k < fim.length; k++) if (fim[k].y - fim[k - 1].y < 14) fim[k].y = fim[k - 1].y + 14;
+    fim.forEach(function (f) {
+      g += '<text class="evo-rot" x="' + (L + w + 8) + '" y="' + (f.y + 4).toFixed(1) + '">' + esc(f.t) + "</text>";
+    });
+    g += '<line class="evo-x" x1="0" x2="0" y1="' + T + '" y2="' + (T + h) + '" style="display:none"/>' + ab.map(function (nm, i) {
+      return '<circle class="evo-p" data-i="' + i + '" r="5" fill="' + cor(b, nm) + '" style="display:none"/>';
+    }).join("") + '<rect class="evo-alvo" x="' + L + '" y="' + T + '" width="' + w + '" height="' + h + '"/>';
+    EVO = { pts: pts, ab: ab, px: px, py: py, W: W, num: b.numero };
+    var ini = pts[0];
+    return '<div class="evo">' + cab + '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Evolução do percentual dos ' +
+      "válidos de " + esc(ab.map(curto).join(" e ")) + ", de " + brp(ini.pct_sec) + "% a " + brp(pts[pts.length - 1].pct_sec) +
+      '% das seções totalizadas">' + g + '</svg><div class="evo-dica"></div><div class="evo-nota">' + br(pts.length) +
+      " leituras guardadas neste navegador, desde " + esc(ini.leitura) + " (" + brp(ini.pct_sec) + "% das seções)</div></div>";
+  }
+  function mostraEvo(ev) {
+    var svg = ev.target && ev.target.closest ? ev.target.closest(".evo svg") : null;
+    var caixa = document.querySelector(".evo");
+    if (!caixa) return;
+    var dica = caixa.querySelector(".evo-dica"), linha = caixa.querySelector(".evo-x"), pts = caixa.querySelectorAll(".evo-p");
+    if (!svg || !EVO.pts.length) {
+      if (dica) dica.style.display = "none";
+      if (linha) linha.style.display = "none";
+      Array.prototype.forEach.call(pts, function (p) { p.style.display = "none"; });
+      return;
+    }
+    var r = svg.getBoundingClientRect(), esc_ = r.width / EVO.W, xv = (ev.clientX - r.left) / esc_, i = 0;
+    EVO.px.forEach(function (x, k) { if (Math.abs(x - xv) < Math.abs(EVO.px[i] - xv)) i = k; });
+    var x = EVO.pts[i], ab = EVO.ab;
+    linha.setAttribute("x1", EVO.px[i]); linha.setAttribute("x2", EVO.px[i]); linha.style.display = "";
+    Array.prototype.forEach.call(pts, function (p) {
+      var nm = ab[+p.getAttribute("data-i")];
+      p.setAttribute("cx", EVO.px[i]); p.setAttribute("cy", EVO.py[nm][i]); p.style.display = "";
+    });
+    dica.innerHTML = "<b>Leitura " + esc(x.leitura) + "</b> · " + brp(x.pct_sec) + "% das seções<br>" + ab.map(function (nm) {
+      return marca({ numero: EVO.num }, nm) + esc(curto(nm)) + " " + brp(x.pct[nm] || 0) + "%";
+    }).join(" · ") + "<br>Diferença: " + txtDif(x.votos || {}, ab[0], ab[1]);
+    dica.style.display = "block";
+    var cr = caixa.getBoundingClientRect(), dx = ev.clientX - cr.left, larg = dica.offsetWidth;
+    dica.style.left = Math.max(0, Math.min(cr.width - larg, dx + (dx > cr.width / 2 ? -larg - 12 : 12))) + "px";
+    dica.style.top = Math.max(0, ev.clientY - cr.top - dica.offsetHeight - 10) + "px";
+  }
+  document.addEventListener("pointermove", mostraEvo);
+  document.addEventListener("pointerdown", mostraEvo);
+
   function painelBrasil(m) {
     var b = m.br;
     if (!b) return '<div class="cartao"><b>FALHA NA LEITURA do arquivo do Brasil.</b></div>';
@@ -609,7 +711,8 @@ if (typeof document !== "undefined") (function (N) {
     }
     var apur = '<div class="cartao"><div class="rotulo">Seções totalizadas</div><div class="grande">' + brp(b.pct_sec) +
       '%</div><div class="progresso"><span style="width:' + b.pct_sec.toFixed(3) + '%"></span></div><div class="legenda"><span>' +
-      br(b.st) + " de " + br(b.ts) + " seções</span><span>eleitorado totalizado " + brp(b.pct_eleit) + "%</span></div>" + divisao + "</div>";
+      br(b.st) + " de " + br(b.ts) + " seções</span><span>eleitorado totalizado " + brp(b.pct_eleit) + "%</span></div>" + divisao +
+      graficoEvolucao(m) + "</div>";
     var kpis = [["Eleitores aptos", br(b.te), "no Brasil e no exterior"],
                 ["Compareceram", br(b.c), brp(b.pct_comp) + "% nas seções totalizadas"],
                 ["Abstenção", br(b.a), brp(b.pct_abst) + "% nas seções totalizadas"],
@@ -665,8 +768,14 @@ if (typeof document !== "undefined") (function (N) {
     var r = chave === "br" ? M1.br : (chave.indexOf("reg:") === 0 ? (M1.regioes[+chave.slice(4)] || {}).r : M1.linhas[chave]);
     return r ? '<br><span class="t1">' + brp(r.pct_cand[nm] || 0) + "%</span>" : "";
   }
-  function legendaT1() {
-    return CFG.turno === 2 && M1 ? '<p class="cab legenda-t1">Na etiqueta cinza, abaixo de cada percentual: o resultado do 1º turno (04/10).</p>' : "";
+  function legendaT1(ok) {
+    if (ok === undefined) ok = !!M1;
+    return CFG.turno === 2 && ok ? '<p class="cab legenda-t1"><span class="so-tela">Na etiqueta cinza, abaixo de cada percentual: ' +
+      'o resultado do 1º turno (04/10).</span><span class="so-papel">Marcado "1ºT", abaixo de cada percentual: o resultado do ' +
+      "1º turno (04/10).</span></p>" : "";
+  }
+  function dicaCidades() {
+    return '<p class="cab dica so-tela">Clique na sigla ou na bandeira de um estado para abrir o relatório por município.</p>';
   }
 
   function linhaUf(rot, r, info, m, classe, chave) {
@@ -886,10 +995,10 @@ if (typeof document !== "undefined") (function (N) {
     return '<a class="bt-wa" href="https://wa.me/?text=' + encodeURIComponent(texto) + '" target="_blank" rel="noopener">WhatsApp</a>' +
       '<button type="button" data-acao="compartilhar">' + (navigator.share ? "Compartilhar" : "Copiar link") + "</button>";
   }
-  function compartilhar(b) {
-    var url = urlPagina();
+  function compartilhar(b, url, texto) {
+    url = url || urlPagina();
     if (navigator.share) {
-      navigator.share({ title: document.title, text: N.fraseResumo(M, CFG.turno, CFG.data_2t), url: url }).catch(function () {});
+      navigator.share({ title: document.title, text: texto || N.fraseResumo(M, CFG.turno, CFG.data_2t), url: url }).catch(function () {});
       return;
     }
     var ok = function () { b.textContent = "Link copiado"; setTimeout(function () { b.textContent = "Copiar link"; }, 2500); };
@@ -1001,8 +1110,8 @@ if (typeof document !== "undefined") (function (N) {
       '<section class="so-tela">' + painelBrasil(m) + "</section>" + quadroContato() +
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
-      "<h2>Por região</h2>" + avisoDivergencia(m) + legendaT1() + quadroRegioes(m) +
-      "<h2>Por estado</h2>" + legendaT1() + '<div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
+      "<h2>Por região</h2>" + avisoDivergencia(m) + legendaT1() + dicaCidades() + quadroRegioes(m) +
+      "<h2>Por estado</h2>" + legendaT1() + dicaCidades() + '<div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
       (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") +
@@ -1032,7 +1141,8 @@ if (typeof document !== "undefined") (function (N) {
   // Votos: um arquivo do TSE por município ({uf}{cd}-c0001-e{ele}-u.jws), lidos 12 por vez só quando a tela abre.
   // Depois, a cada 2 min, lê o consolidado do estado ({uf}-e{ele}-ab.jws: seções e horário por município) e
   // baixa de novo só as cidades que mudaram. Nomes: municipios/{uf}.json, tirado da lista oficial do TSE.
-  var CID = { uf: "", nomes: null, dados: {}, ab: {}, timer: null, filtro: "", lidos: 0, total: 0, leitura: "" };
+  // Na página do 2º turno, o % de cada um no 1º turno vem de municipios_t1/{uf}.json (resultado final, gerado uma vez).
+  var CID = { uf: "", nomes: null, dados: {}, ab: {}, timer: null, filtro: "", lidos: 0, total: 0, leitura: "", t1: null };
   function semAcento(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
   function fila(itens, n, fn, prog) {
     return new Promise(function (ok) {
@@ -1051,18 +1161,26 @@ if (typeof document !== "undefined") (function (N) {
   function abreCidades(uf, semHistorico) {
     if (!/^[a-z]{2}$/.test(uf) || (uf !== "zz" && !CFG.nome_uf[uf])) return;
     clearTimeout(CID.timer);
-    CID = { uf: uf, nomes: null, dados: {}, ab: {}, timer: null, filtro: "", lidos: 0, total: 0, leitura: "" };
+    CID = { uf: uf, nomes: null, dados: {}, ab: {}, timer: null, filtro: "", lidos: 0, total: 0, leitura: "", t1: null };
     if (!semHistorico) { try { history.pushState({ cidades: uf }, "", "#cidades-" + uf); } catch (e) {} }
     var el = document.getElementById("cidades");
     el.innerHTML = '<header class="barra so-tela"><div><div class="sobre">' + esc(CFG.rotulo) + '</div><div class="titulo">' +
       (uf === "zz" ? "" : band(uf)) + esc(nomeUf(uf)) + ' — por município</div><div class="vivo" id="cid-status">Carregando...</div></div>' +
-      '<div class="botoes"><button type="button" data-acao="fecha-cidades">Voltar aos estados</button></div></header>' +
+      '<div class="botoes"><a class="bt-wa" id="cid-wa" href="https://wa.me/" target="_blank" rel="noopener">WhatsApp</a>' +
+      '<button type="button" data-acao="compartilhar-cid">' + (navigator.share ? "Compartilhar" : "Copiar link") + "</button>" +
+      '<button type="button" data-acao="pdf">Imprimir / PDF</button>' +
+      '<button type="button" data-acao="fecha-cidades">Voltar aos estados</button></div></header>' +
       '<div class="so-papel"><h1>' + esc(CFG.titulo) + " — " + esc(nomeUf(uf)) + ' por município</h1><p class="cab" id="cid-status-papel"></p></div>' +
       '<div class="cid-busca so-tela"><input type="search" id="busca-mun" placeholder="Buscar município" autocomplete="off"></div>' +
       '<div id="cid-corpo"><p class="carregando">Carregando a lista de municípios...</p></div>';
     document.body.classList.add("com-cidades");
     el.classList.add("aberto");
     el.scrollTop = 0;
+    linkWaCidades();
+    if (CFG.turno === 2) {
+      fetch("municipios_t1/" + uf + ".json").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (j) { if (CID.uf === uf) { CID.t1 = j; if (CID.nomes) desenhaCidades(); } }, function () {});
+    }
     fetch("municipios/" + uf + ".json").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (lista) {
         if (CID.uf !== uf) return;
@@ -1122,6 +1240,19 @@ if (typeof document !== "undefined") (function (N) {
       });
     });
   }
+  function urlCidades() { return urlPagina() + "#cidades-" + CID.uf; }
+  function textoCidades() {
+    var ab = M ? par(M) : [], ruf = M && M.linhas[CID.uf];
+    var t = "Eleição presidencial 2026, " + CFG.turno + "º turno — " + nomeUf(CID.uf) + " por município";
+    if (ruf && ab.length > 1) t += ": " + brp(ruf.pct_sec) + "% das seções totalizadas · " + ab.map(function (k) {
+      return curto(k) + " " + brp(ruf.pct_cand[k] || 0) + "%";
+    }).join(" × ") + " · " + txtDif(ruf.votos, ab[0], ab[1]);
+    return t + ".";
+  }
+  function linkWaCidades() {
+    var a = document.getElementById("cid-wa");
+    if (a) a.href = "https://wa.me/?text=" + encodeURIComponent(textoCidades() + " " + urlCidades());
+  }
   function statusCidades() {
     var falhas = Object.keys(CID.dados).filter(function (cd) { return CID.dados[cd].falha; }).length;
     var conc = M && M.br && M.br.ts && M.br.st >= M.br.ts;
@@ -1131,6 +1262,7 @@ if (typeof document !== "undefined") (function (N) {
     var a = document.getElementById("cid-status"), b = document.getElementById("cid-status-papel");
     if (a) a.textContent = txt;
     if (b) b.textContent = "Fonte: TSE, arquivos por município. " + txt;
+    linkWaCidades();
   }
   function desenhaCidades() {
     var corpo = document.getElementById("cid-corpo");
@@ -1143,6 +1275,10 @@ if (typeof document !== "undefined") (function (N) {
     function celDif(r) {
       return tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero));
     }
+    function t1m(cd, k) {
+      var x = CFG.turno === 2 && CID.t1 && CID.t1[cd];
+      return x && x[k] !== undefined ? '<br><span class="t1">' + brp(x[k]) + "%</span>" : "";
+    }
     function situ(x) {
       return x.falha ? (x.r ? '<span class="falha">FALHA NA LEITURA — valor anterior</span>' : '<span class="falha">FALHA NA LEITURA</span>') : "OK";
     }
@@ -1151,7 +1287,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!x.r) return "<tr>" + nm + '<td colspan="4" class="l">' + (x.falha ? "FALHA NA LEITURA" : "carregando...") + "</td></tr>";
       var r = x.r;
       return "<tr>" + nm + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
-        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%"); }).join("") + celDif(r) + "</tr>";
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") + celDif(r) + "</tr>";
     }).join("");
     var larga = lin.map(function (x) {
       var nm = '<td class="l" data-nome="' + esc(semAcento(x.nome)) + '">' + esc(x.nome) + "</td>";
@@ -1159,16 +1295,16 @@ if (typeof document !== "undefined") (function (N) {
       var r = x.r;
       return "<tr>" + nm + tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.te) + tdN(r.c) +
         tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) +
-        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%"); }).join("") +
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") +
         celDif(r) + '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="n">' + esc(r.hg) + '</td><td class="l">' + situ(x) + "</td></tr>";
     }).join("");
     var resumo = ruf ? '<p class="cab cid-resumo"><b>' + esc(nomeUf(uf)) + ":</b> " + brp(ruf.pct_sec) + "% das seções · " +
       ab.map(function (k) { return esc(curto(k)) + " " + brp(ruf.pct_cand[k] || 0) + "%"; }).join(" × ") + " · " +
       txtDif(ruf.votos, ab[0], ab[1]) + " · líder " + esc(nomeLider(ruf.lider)) + "</p>" : "";
-    corpo.innerHTML = resumo +
-      '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-mun-cel"><colgroup><col style="width:34%">' +
-      '<col style="width:14%"><col style="width:13%"><col style="width:13%"><col style="width:26%"></colgroup><thead><tr>' +
+    corpo.innerHTML = resumo + legendaT1(!!CID.t1) +
+      '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-mun-cel"><colgroup><col style="width:30%">' +
+      '<col style="width:13%"><col style="width:15%"><col style="width:15%"><col style="width:27%"></colgroup><thead><tr>' +
       "<th>Município</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th>" +
       "</tr></thead><tbody>" + cel + "</tbody></table></div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
@@ -1398,6 +1534,7 @@ if (typeof document !== "undefined") (function (N) {
       return;
     }
     if (acao === "compartilhar") { compartilhar(b); return; }
+    if (acao === "compartilhar-cid") { compartilhar(b, urlCidades(), textoCidades()); return; }
     if (acao === "pdf") window.print();
     else if (acao === "csv") csv();
     else if (acao === "completa") { document.body.classList.toggle("completa"); aplica(); }

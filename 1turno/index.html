@@ -40,6 +40,8 @@ body.modo-pdf{margin:0;font-size:7pt}
 #t-ufs tr:not(.tot):not(.fixa) td:first-child,#t-cel tr:not(.tot):not(.fixa) td:first-child{white-space:nowrap}
 #t-ufs td:first-child,#t-cel td:first-child,#t-proj td:first-child{overflow-wrap:normal}
 @media print{.so-tela,.cor,.band{display:none !important}}
+/* % do 1º turno: na tela, etiqueta cinza; no papel, marcado "1ºT" (fundo de etiqueta não se lê impresso) */
+@media print{.t1{color:#404040}.t1::before{content:"1ºT "}}
 /* TELA: painel moderno. O PDF e a impressão usam só as regras acima (padrão contábil). */
 @media screen{
  .so-papel{display:none !important}
@@ -69,6 +71,21 @@ body.modo-pdf{margin:0;font-size:7pt}
  .cand .pct{font-size:44px;font-weight:800;color:var(--cor);line-height:1;font-variant-numeric:tabular-nums}
  .cand .votos{font-size:14px;color:#334155;margin-top:6px;font-variant-numeric:tabular-nums}
  .cand .eleito{margin-top:8px;font-weight:800;color:var(--cor);letter-spacing:.06em}
+ .evo{position:relative;margin-top:16px;padding-top:12px;border-top:1px solid #E2E8F0}
+ .evo-cab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+ .evo-leg span{margin-left:12px;font-size:12px;color:#334155;white-space:nowrap}
+ .evo-leg i{display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:middle}
+ .evo svg{display:block;width:100%;height:auto;touch-action:pan-y}
+ .evo-grade{stroke:#E2E8F0;stroke-width:1}
+ .evo-50{stroke:#64748B;stroke-width:1;stroke-dasharray:4 3}
+ .evo-eixo{font-size:10.5px;fill:#64748B}
+ .evo-rot{font-size:12px;font-weight:700;fill:#0F172A}
+ .evo-linha{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+ .evo-fim,.evo-p{stroke:#FFFFFF;stroke-width:2}
+ .evo-x{stroke:#94A3B8;stroke-width:1}
+ .evo-alvo{fill:transparent;cursor:crosshair}
+ .evo-dica{position:absolute;display:none;pointer-events:none;background:#FFFFFF;border:1px solid #CBD5E1;border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.5;color:#0F172A;white-space:nowrap;z-index:2}
+ .evo-vazio,.evo-nota{margin:6px 0 0;font-size:11.5px;color:#64748B}
  .frase-cand{margin-top:8px;font-weight:700;font-size:14px;color:var(--cor);line-height:1.3}
  .divisao{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#E2E8F0;margin:14px 0 6px}
  .divisao span{display:block;height:100%}
@@ -115,8 +132,8 @@ body.modo-pdf{margin:0;font-size:7pt}
  .cab{color:#475569}
  .rod{color:#475569;font-size:12px;line-height:1.5}
  #publicidade table{font-size:13px}
- .ufl{cursor:pointer}
- .ufl:hover{text-decoration:underline}
+ .ufl{cursor:pointer;text-decoration:underline dotted #94A3B8;text-underline-offset:3px}
+ .ufl:hover{text-decoration:underline solid}
  #cidades.aberto{display:block;position:fixed;inset:0;z-index:50;overflow:auto;background:#F1F5F9;padding:0 16px 32px}
  body.com-cidades{overflow:hidden}
  .cid-busca{margin:12px 0}
@@ -154,4 +171,4 @@ body.modo-pdf{margin:0;font-size:7pt}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6257", "pleito": "3220", "turno": 1, "eleicao_1t": "", "data_2t": "25/10", "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 1º TURNO · 04/10/2026", "titulo": "Eleição para Presidente da República — 1º turno — 04/10/2026", "arquivo": "resultado_1turno_presidente", "pagina": "Apuração 1º turno — Presidente 2026", "data": "04/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "contato": {"texto": "Converse com a Gestor CNT no WhatsApp", "url": "https://wa.me/message/TKPLP4LXLRCIK1", "qr": "whatsapp_gestorcnt.svg"}, "alertar": [], "patrocinio": null, "presos": false}</script><script src="app.js?v=1792966231"></script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c04fa4b8421a491da32d88c1f7cea12e"}'></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6257", "pleito": "3220", "turno": 1, "eleicao_1t": "", "data_2t": "25/10", "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 1º TURNO · 04/10/2026", "titulo": "Eleição para Presidente da República — 1º turno — 04/10/2026", "arquivo": "resultado_1turno_presidente", "pagina": "Apuração 1º turno — Presidente 2026", "data": "04/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "contato": {"texto": "Converse com a Gestor CNT no WhatsApp", "url": "https://wa.me/message/TKPLP4LXLRCIK1", "qr": "whatsapp_gestorcnt.svg"}, "alertar": [], "patrocinio": null, "presos": false}</script><script src="app.js?v=1792967461"></script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c04fa4b8421a491da32d88c1f7cea12e"}'></script></body></html>
