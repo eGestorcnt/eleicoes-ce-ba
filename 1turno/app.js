@@ -913,6 +913,16 @@ if (typeof document !== "undefined") (function (N) {
       "</tbody></table></div>";
   }
 
+  // ---- contato da Gestor CNT: no celular o botão abre o WhatsApp; no computador o QR leva a conversa ao celular
+  function quadroContato() {
+    var c = CFG.contato;
+    if (!c || !/^https:\/\/wa\.me\//.test(c.url || "")) return "";
+    return '<div class="cartao contato so-tela"><img class="qr" src="' + esc(c.qr) + '" alt="QR code do WhatsApp da Gestor CNT" ' +
+      'width="120" height="120"><div><div class="rotulo">Fale com a gente</div><div class="contato-titulo">' + esc(c.texto) +
+      '</div><div class="sub">Aponte a câmera do celular para o código ou toque no botão.</div>' +
+      '<a class="bt-contato" href="' + esc(c.url) + '" target="_blank" rel="noopener">Abrir no WhatsApp</a></div></div>';
+  }
+
   var M = null, agoraUlt = null, falta = INTERVALO;
   function desenha() {
     var m = M, agora = agoraUlt;
@@ -936,7 +946,7 @@ if (typeof document !== "undefined") (function (N) {
       '<p class="cab">' + esc(N.fraseResumo(m, CFG.turno, CFG.data_2t)) + "</p></div>" +
       '<div class="frase so-tela">' + esc(N.fraseResumo(m, CFG.turno, CFG.data_2t)) + "</div>" +
       publicidade() +
-      '<section class="so-tela">' + painelBrasil(m) + "</section>" +
+      '<section class="so-tela">' + painelBrasil(m) + "</section>" + quadroContato() +
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
       "<h2>Por região</h2>" + avisoDivergencia(m) + quadroRegioes(m) +
