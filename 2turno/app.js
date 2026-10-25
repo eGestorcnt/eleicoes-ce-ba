@@ -666,7 +666,7 @@ if (typeof document !== "undefined") (function (N) {
     return r ? '<br><span class="t1">' + brp(r.pct_cand[nm] || 0) + "%</span>" : "";
   }
   function legendaT1() {
-    return CFG.turno === 2 && M1 ? '<p class="cab legenda-t1">Em cinza, abaixo de cada percentual: o resultado do 1º turno (04/10).</p>' : "";
+    return CFG.turno === 2 && M1 ? '<p class="cab legenda-t1">Na etiqueta cinza, abaixo de cada percentual: o resultado do 1º turno (04/10).</p>' : "";
   }
 
   function linhaUf(rot, r, info, m, classe, chave) {
@@ -763,7 +763,7 @@ if (typeof document !== "undefined") (function (N) {
         '<td class="l">' + (x.tot ? "OK" : leitura(x)) + "</td></tr>";
     }).join("");
     return '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-reg-cel"><colgroup>' +
-      '<col style="width:24%"><col style="width:16%"><col style="width:13%"><col style="width:13%"><col style="width:34%"></colgroup>' +
+      '<col style="width:23%"><col style="width:14%"><col style="width:15%"><col style="width:15%"><col style="width:33%"></colgroup>' +
       "<thead><tr><th>Região</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) +
       "</th><th>Diferença</th></tr></thead><tbody>" + cel + "</tbody></table></div></div>" +
       '<div class="rola so-largo"><table class="ord medio" id="t-reg"><colgroup><col style="width:8%"><col style="width:14%">' +
