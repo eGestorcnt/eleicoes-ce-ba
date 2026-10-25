@@ -658,7 +658,7 @@ if (typeof document !== "undefined") (function (N) {
     return '<div class="evo" data-evo="' + id + '">' + cab + '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Evolução do percentual dos ' +
       "válidos de " + esc(ab.map(curto).join(" e ")) + ", de " + brp(ini.pct_sec) + "% a " + brp(pts[pts.length - 1].pct_sec) +
       '% das seções totalizadas">' + g + '</svg><div class="evo-dica"></div><div class="evo-nota">' + br(pts.length) +
-      " leituras guardadas neste navegador, desde " + esc(ini.leitura) + " (" + brp(ini.pct_sec) + "% das seções)</div></div>";
+      " leituras, desde " + esc(ini.leitura) + " (" + brp(ini.pct_sec) + "% das seções)</div></div>";
   }
   function mostraEvo(ev) {
     var svg = ev.target && ev.target.closest ? ev.target.closest(".evo svg") : null;
@@ -1026,6 +1026,35 @@ if (typeof document !== "undefined") (function (N) {
 
   // ---- comparação com o 1º turno (só na página do 2º turno; o 1º turno é resultado final, lido uma vez)
   var M1 = null, erroT1 = "";
+  // ---- histórico publicado (evolucao.json, tirado do monitor local e republicado a cada 5 min durante a
+  // apuração): quem abre a página agora já vê os gráficos de evolução desde o início; as leituras feitas por
+  // este navegador continuam se somando. Leitura repetida (mesmas seções e votos) entra uma vez só.
+  function juntaEvo(a, b) {
+    var vistos = {}, out = [];
+    a.concat(b).forEach(function (x) {
+      if (!x || !x.votos) return;
+      var k = x.st + "|" + x.tv;
+      if (vistos[k]) return;
+      vistos[k] = 1;
+      if (!x.pct) {
+        x.pct = {};
+        Object.keys(x.votos).forEach(function (nm) { x.pct[nm] = N.pct(x.votos[nm], x.vv); });
+      }
+      out.push(x);
+    });
+    return out.sort(function (p, q) { return p.st - q.st || p.tv - q.tv; });
+  }
+  function carregaEvolucao() {
+    if (CFG.turno !== 2) return;
+    fetch("evolucao.json?ts=" + Date.now()).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        evolucao = juntaEvo(j.br || [], evolucao);
+        Object.keys(j.uf || {}).forEach(function (uf) { evoUf[uf] = juntaEvo(j.uf[uf] || [], evoUf[uf] || []); });
+        guardaHistorico();
+        if (M) desenhaPreservando();
+        if (CID.uf && CID.nomes) desenhaEvoUf(true);
+      }, function () {});
+  }
   function carregaTurno1() {
     if (CFG.turno !== 2 || !CFG.eleicao_1t) return;
     var raiz1 = "https://resultados.tse.jus.br/oficial/ele2026/" + CFG.eleicao_1t + "/dados/";
@@ -1614,4 +1643,5 @@ if (typeof document !== "undefined") (function (N) {
   }, 1000);
   rodada();
   carregaTurno1();
+  carregaEvolucao();
 })(NUCLEO);
