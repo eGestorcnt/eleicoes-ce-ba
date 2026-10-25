@@ -296,6 +296,45 @@ var NUCLEO = (function () {
     return "Com " + fmtPct(b.pct_sec) + "% das seções apuradas, " + nome1(a) + " lidera com " + fmtPct(pa) +
       "% dos válidos, " + fmtInt(dif) + " votos à frente de " + nome1(c) + ".";
   }
+  // ---- frase animada e NEUTRA no cartão de cada candidato, durante a apuração (vale igual para os dois; nunca
+  // ridiculariza ninguém): VIRADA, ampliou / encurtou (em relação à leitura anterior), voto a voto (< 1 ponto),
+  // reta final (90%+), empate. Antes e depois da apuração, nenhuma frase. Devolve {nome de urna: frase}.
+  function frasesCartao(m, anterior) {
+    var b = m.br, out = {};
+    if (!b || m.ordem.length < 2 || !b.st || (b.ts && b.st >= b.ts)) return out;
+    var ordem = m.ordem.slice().sort(function (x, y) {
+      return (b.votos[y] || 0) - (b.votos[x] || 0) || m.ordem.indexOf(x) - m.ordem.indexOf(y);
+    });
+    var a = ordem[0], c = ordem[1], pa = b.pct_cand[a] || 0, pc = b.pct_cand[c] || 0;
+    var dif = (b.votos[a] || 0) - (b.votos[c] || 0), d = fmtInt(dif);
+    if (!dif) { out[a] = out[c] = "Empate absoluto: mesmo número de votos"; return out; }
+    var liderAnt = "", difAnt = null;
+    if (anterior && anterior.votos) {
+      var va = anterior.votos[a] || 0, vc = anterior.votos[c] || 0;
+      liderAnt = va > vc ? a : (vc > va ? c : "");
+      difAnt = Math.abs(va - vc);
+    }
+    if (liderAnt && liderAnt !== a) {
+      out[a] = "VIRADA! Passou à frente por " + d + " votos";
+      out[c] = "Agora a " + d + " votos do líder";
+    } else if (b.pct_sec >= 90) {
+      out[a] = "Reta final: à frente por " + d + " votos";
+      out[c] = "Reta final: a " + d + " votos do líder";
+    } else if (pa - pc < 1) {
+      out[a] = out[c] = "Voto a voto: só " + fmtPct(pa - pc) + " ponto percentual de diferença";
+    } else if (difAnt !== null && liderAnt === a && dif > difAnt) {
+      out[a] = "Ampliou a vantagem: à frente por " + d + " votos";
+      out[c] = "A " + d + " votos do líder";
+    } else if (difAnt !== null && liderAnt === a && dif < difAnt) {
+      out[a] = "À frente por " + d + " votos";
+      out[c] = "Encurtou a distância: a " + d + " votos do líder";
+    } else {
+      out[a] = "À frente por " + d + " votos";
+      out[c] = "A " + d + " votos do líder";
+    }
+    return out;
+  }
+
   // ---- 2º turno × 1º turno por UF: % dos válidos de cada um dos dois nas duas eleições e quem estava à frente
   function soDoisN(v, ab) { var o = {}; o[ab[0]] = (v || {})[ab[0]] || 0; o[ab[1]] = (v || {})[ab[1]] || 0; return o; }
   function comparaTurnos(m1, m2, ab) {
@@ -337,7 +376,7 @@ var NUCLEO = (function () {
   }
 
   return { UFS: UFS, EXTERIOR: EXTERIOR, PARTES: PARTES, ARQUIVOS: ARQUIVOS, REGIOES: REGIOES, somaRegiao: somaRegiao,
-           fraseResumo: fraseResumo, comparaTurnos: comparaTurnos, projecaoPeloT1: projecaoPeloT1,
+           fraseResumo: fraseResumo, frasesCartao: frasesCartao, comparaTurnos: comparaTurnos, projecaoPeloT1: projecaoPeloT1,
            boletim: boletim, resumoBoletim: resumoBoletim,
            inteiro: inteiro, extrai: extrai,
            pct: pct, lider: lider, referencia: referencia, calcula: calcula, somaProjecao: somaProjecao,
@@ -546,6 +585,7 @@ if (typeof document !== "undefined") (function (N) {
     });
     var dois = frente.slice(0, 2);
     var resto = Math.max(0, 100 - dois.reduce(function (s, nm) { return s + (b.pct_cand[nm] || 0); }, 0));
+    var frases = N.frasesCartao(m, evolucao.length > 1 ? evolucao[evolucao.length - 2] : null);
     var cards = dois.map(function (nm) {
       var sq = (b.sq || {})[nm], foto = /^\d+$/.test(sq || "") ?
         '<img class="foto" src="' + RAIZ + "/fotos/br/" + sq + '.jpeg" alt="Foto de ' + esc(nm) + '">' : "";
@@ -553,7 +593,7 @@ if (typeof document !== "undefined") (function (N) {
         '<div><div class="num">Nº ' + esc(b.numero[nm]) + '</div><div class="nome">' + esc(nm) + "</div></div>" +
         estadosNaFrente(m, nm) + "</div>" +
         '<div class="pct">' + brp(b.pct_cand[nm] || 0) + '%</div><div class="votos">' + br(b.votos[nm] || 0) +
-        " votos válidos</div>" + (b.situacao[nm] ? '<div class="eleito">' + esc(b.situacao[nm].toUpperCase()) + "</div>" : "") + "</div>";
+        " votos válidos</div>" + (frases[nm] ? '<div class="frase-cand">' + esc(frases[nm]) + "</div>" : "") + (b.situacao[nm] ? '<div class="eleito">' + esc(b.situacao[nm].toUpperCase()) + "</div>" : "") + "</div>";
     }).join("");
     var divisao;
     if (b.vv) {
