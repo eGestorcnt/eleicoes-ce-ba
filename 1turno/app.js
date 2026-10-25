@@ -658,11 +658,22 @@ if (typeof document !== "undefined") (function (N) {
       c(br(b.por_apurar)) + c(b.por_vir === null ? "—" : br(b.por_vir)) + "</tr></tbody></table>" +
       '<p class="cab"><b>' + esc(textoProjecao(m)) + "</b></p>";
   }
-  function linhaUf(rot, r, info, m, classe) {
+  // % de cada candidato no 1º turno, em cinza embaixo do % atual (só na página do 2º turno, depois de ler o 1º turno).
+  // chave: sigla da UF, "br" ou "reg:<n>" (n = posição da região em N.REGIOES)
+  function t1(chave, nm) {
+    if (CFG.turno !== 2 || !M1 || !chave) return "";
+    var r = chave === "br" ? M1.br : (chave.indexOf("reg:") === 0 ? (M1.regioes[+chave.slice(4)] || {}).r : M1.linhas[chave]);
+    return r ? '<br><span class="t1">' + brp(r.pct_cand[nm] || 0) + "%</span>" : "";
+  }
+  function legendaT1() {
+    return CFG.turno === 2 && M1 ? '<p class="cab legenda-t1">Em cinza, abaixo de cada percentual: o resultado do 1º turno (04/10).</p>' : "";
+  }
+
+  function linhaUf(rot, r, info, m, classe, chave) {
     var ab = par(m), cls = classe ? ' class="' + classe + '"' : "";
     if (!r) return "<tr" + cls + '><td class="l">' + rot + '</td><td colspan="19" class="l">' + situacaoLeitura(info) + "</td></tr>";
     var cand = ab.map(function (nm) {
-      return tdN(r.pct_cand[nm] || 0, br(r.votos[nm] || 0) + "<br>" + brp(r.pct_cand[nm] || 0) + "%");
+      return tdN(r.pct_cand[nm] || 0, br(r.votos[nm] || 0) + "<br>" + brp(r.pct_cand[nm] || 0) + "%" + t1(chave, nm));
     }).join("");
     return "<tr" + cls + '><td class="l">' + rot + "</td>" +
       tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.pct_eleit, brp(r.pct_eleit) + "%") +
@@ -677,8 +688,9 @@ if (typeof document !== "undefined") (function (N) {
     var ab = par(m);
     var larg = [5.5, 5.5, 4, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 4, 4, 6, 6, 5.5, 4, 5.5, 5.5, 5, 4];  // soma 100
     var corpo = N.UFS.map(function (uf) {
-      return linhaUf(ufLink(uf), m.linhas[uf], m.leitura[uf], m);
-    }).join("") + linhaUf(ufLink("zz", "EXTERIOR"), m.linhas.zz, m.leitura.zz, m, "fixa") + linhaUf(band("br") + "TOTAL BRASIL", m.br, m.leitura.br, m, "tot");
+      return linhaUf(ufLink(uf), m.linhas[uf], m.leitura[uf], m, "", uf);
+    }).join("") + linhaUf(ufLink("zz", "EXTERIOR"), m.linhas.zz, m.leitura.zz, m, "fixa", "zz") +
+      linhaUf(band("br") + "TOTAL BRASIL", m.br, m.leitura.br, m, "tot", "br");
     return '<table class="ord" id="t-ufs"><colgroup>' + larg.map(function (w) { return '<col style="width:' + w + '%">'; }).join("") +
       "</colgroup><thead><tr><th>UF</th><th>Seções totalizadas</th><th>% eleit. totaliz.</th><th>Aptos</th>" +
       "<th>Compare&shy;ceram (seções totaliz.)</th><th>% comp.</th><th>Abstenção</th><th>% abst.</th><th>Votos apurados</th>" +
@@ -688,19 +700,19 @@ if (typeof document !== "undefined") (function (N) {
   }
   function tabelaCelular(m) {
     var ab = par(m);
-    function linha(rot, r, classe) {
+    function linha(rot, r, classe, chave) {
       var cls = classe ? ' class="' + classe + '"' : "";
       if (!r) return "<tr" + cls + '><td class="l">' + rot + '</td><td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + '><td class="l">' + rot + "</td>" + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
-        ab.map(function (nm) { return tdN(r.pct_cand[nm] || 0, brp(r.pct_cand[nm] || 0) + "%"); }).join("") +
+        ab.map(function (nm) { return tdN(r.pct_cand[nm] || 0, brp(r.pct_cand[nm] || 0) + "%" + t1(chave, nm)); }).join("") +
         tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "",
             classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }
     return '<table class="ord" id="t-cel"><colgroup><col style="width:17%"><col style="width:16%"><col style="width:15%">' +
       '<col style="width:15%"><col style="width:37%"></colgroup><thead><tr><th>UF</th><th>Apurado</th><th>' +
       esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th></tr></thead><tbody>" +
-      N.UFS.map(function (uf) { return linha(ufLink(uf), m.linhas[uf]); }).join("") +
-      linha(ufLink("zz", "EXTERIOR"), m.linhas.zz, "fixa") + linha(band("br") + "BRASIL", m.br, "tot") + "</tbody></table>";
+      N.UFS.map(function (uf) { return linha(ufLink(uf), m.linhas[uf], "", uf); }).join("") +
+      linha(ufLink("zz", "EXTERIOR"), m.linhas.zz, "fixa", "zz") + linha(band("br") + "BRASIL", m.br, "tot", "br") + "</tbody></table>";
   }
   function avisoDivergencia(m) {
     if (!m.br) return "";
@@ -722,16 +734,16 @@ if (typeof document !== "undefined") (function (N) {
         x.r.faltam.map(function (u) { return u.toUpperCase(); }).join(", ") : "OK";
     }
     var lista = m.regioes.concat([{ nome: "TOTAL BRASIL", ufs: [], r: m.br, tot: true }]);
-    var cel = lista.map(function (x) {
-      var cls = x.tot ? ' class="tot"' : "", r = x.r;
+    var cel = lista.map(function (x, i) {
+      var cls = x.tot ? ' class="tot"' : "", r = x.r, chave = x.tot ? "br" : "reg:" + i;
       var nome = '<td class="l">' + (x.tot ? "BRASIL" : esc(x.nome)) + "</td>";
       if (!r) return "<tr" + cls + ">" + nome + '<td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + ">" + nome + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
-        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%"); }).join("") +
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
         tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }).join("");
-    var larga = lista.map(function (x) {
-      var cls = x.tot ? ' class="tot"' : "", r = x.r;
+    var larga = lista.map(function (x, i) {
+      var cls = x.tot ? ' class="tot"' : "", r = x.r, chave = x.tot ? "br" : "reg:" + i;
       var nome = '<td class="l">' + esc(x.nome) + "</td>";
       // por região, só as siglas (sem bandeira), ainda clicáveis para abrir os municípios
       var estados = '<td class="l reg-ufs">' + (x.tot ? "27 UFs + exterior" : x.ufs.map(function (uf) {
@@ -744,7 +756,7 @@ if (typeof document !== "undefined") (function (N) {
       return "<tr" + cls + ">" + nome + estados +
         tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.te) +
         tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) +
-        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%"); }).join("") +
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
         tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) +
         '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="l">' + (x.nome === "Exterior" ? "—" : esc(curto(ab[0])) + " " + na + " · " + esc(curto(ab[1])) + " " + nb) + "</td>" +
@@ -989,8 +1001,8 @@ if (typeof document !== "undefined") (function (N) {
       '<section class="so-tela">' + painelBrasil(m) + "</section>" + quadroContato() +
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
-      "<h2>Por região</h2>" + avisoDivergencia(m) + quadroRegioes(m) +
-      '<h2>Por estado</h2><div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
+      "<h2>Por região</h2>" + avisoDivergencia(m) + legendaT1() + quadroRegioes(m) +
+      "<h2>Por estado</h2>" + legendaT1() + '<div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
       (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") +
