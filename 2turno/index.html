@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Apuração 2º turno — Presidente 2026</title><meta name="description" content="Apuração do 2º turno para Presidente, estado por estado, com os números oficiais do TSE atualizados a cada minuto."><style>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Apuração 2º turno — Presidente 2026</title><meta name="description" content="Apuração 2º turno — Presidente 2026, estado por estado, com os números oficiais do TSE lidos direto da fonte a cada minuto."><style>
 body{font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff;margin:16px}
 h1{font-family:'Times New Roman',serif;font-size:16px;font-weight:bold;text-transform:uppercase;margin:0 0 4px}
 h2{font-size:12px;margin:16px 0 4px;text-transform:uppercase}
@@ -11,6 +11,10 @@ tbody tr:nth-child(even) td{background:#F0F0F0}
 .rola>table{min-width:1500px}
 .rola>table.medio{min-width:1050px}
 .rola>table.estreito{min-width:640px}
+.rola>table#t-mun-cel{min-width:0}
+.ufl{color:inherit;text-decoration:none;white-space:nowrap}
+#cidades{display:none}
+@media print{body.com-cidades #conteudo{display:none !important}body.com-cidades #cidades{display:block}}
 .rola>table#t-cel{min-width:0}
 .l{text-align:left}
 tr.tot td{font-weight:bold;background:#E4E4E4 !important}
@@ -66,7 +70,9 @@ body.modo-pdf{margin:0;font-size:7pt}
  .divisao{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#E2E8F0;margin:14px 0 6px}
  .divisao span{display:block;height:100%}
  .meio{position:relative}
+ .meio{display:flow-root}
  .meio:after{content:"";position:absolute;left:50%;top:10px;height:22px;border-left:2px dashed #0F172A}
+ .meio + .legenda{margin-top:4px}
  .legenda{display:flex;justify-content:space-between;font-size:12px;color:#475569}
  .progresso{height:10px;background:#E2E8F0;border-radius:5px;overflow:hidden;margin:8px 0}
  .progresso span{display:block;height:100%;background:#0F172A}
@@ -98,6 +104,13 @@ body.modo-pdf{margin:0;font-size:7pt}
  .cab{color:#475569}
  .rod{color:#475569;font-size:12px;line-height:1.5}
  #publicidade table{font-size:13px}
+ .ufl{cursor:pointer}
+ .ufl:hover{text-decoration:underline}
+ #cidades.aberto{display:block;position:fixed;inset:0;z-index:50;overflow:auto;background:#F1F5F9;padding:0 16px 32px}
+ body.com-cidades{overflow:hidden}
+ .cid-busca{margin:12px 0}
+ .cid-busca input{width:100%;max-width:420px;box-sizing:border-box;font:14px 'Segoe UI',system-ui,Arial,sans-serif;padding:9px 12px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;color:#0F172A}
+ .cid-resumo{margin:4px 0 10px;font-size:13px}
  .so-celular{display:none}
  .botao-completa{display:none}
  @media (max-width:900px){
@@ -111,10 +124,11 @@ body.modo-pdf{margin:0;font-size:7pt}
   .so-celular{display:block}
   body:not(.completa) .so-largo{display:none}
   .botao-completa{display:inline-block;margin:8px 0;background:#fff;border:1px solid #CBD5E1;border-radius:6px;padding:8px 14px;font:600 13px 'Segoe UI',system-ui,Arial,sans-serif}
-  #t-cel td,#t-cel th{padding:8px 4px;font-size:12px}
-  #t-cel th{white-space:nowrap;font-size:10px}
-  #t-cel td:last-child{white-space:nowrap;font-size:11.5px;padding-left:2px}
+  #t-cel td,#t-cel th,#t-mun-cel td,#t-mun-cel th{padding:8px 4px;font-size:12px}
+  #t-cel th,#t-mun-cel th{white-space:nowrap;font-size:10px}
+  #t-cel td:last-child,#t-mun-cel td:last-child{white-space:nowrap;font-size:11.5px;padding-left:2px}
+  #t-mun-cel td:first-child{white-space:normal;font-size:12px}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792936783"></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "turno": 2, "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 2º TURNO · 25/10/2026", "titulo": "Eleição para Presidente da República — 2º turno — 25/10/2026", "arquivo": "monitor_2turno_presidente", "pagina": "Apuração 2º turno — Presidente 2026", "data": "25/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792937721"></script></body></html>
