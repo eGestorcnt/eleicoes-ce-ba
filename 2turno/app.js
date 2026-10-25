@@ -774,10 +774,18 @@ if (typeof document !== "undefined") (function (N) {
   }
   // % de cada candidato no 1º turno, em cinza embaixo do % atual (só na página do 2º turno, depois de ler o 1º turno).
   // chave: sigla da UF, "br" ou "reg:<n>" (n = posição da região em N.REGIOES)
+  function linhaT1(chave) {
+    if (CFG.turno !== 2 || !M1 || !chave) return null;
+    return chave === "br" ? M1.br : (chave.indexOf("reg:") === 0 ? (M1.regioes[+chave.slice(4)] || {}).r : M1.linhas[chave]);
+  }
   function t1(chave, nm) {
-    if (CFG.turno !== 2 || !M1 || !chave) return "";
-    var r = chave === "br" ? M1.br : (chave.indexOf("reg:") === 0 ? (M1.regioes[+chave.slice(4)] || {}).r : M1.linhas[chave]);
+    var r = linhaT1(chave);
     return r ? '<br><span class="t1">' + brp(r.pct_cand[nm] || 0) + "%</span>" : "";
+  }
+  // diferença de votos entre os dois no 1º turno, embaixo da diferença atual
+  function t1Dif(chave, ab) {
+    var r = linhaT1(chave);
+    return r ? '<br><span class="t1">' + txtDif(soDois(r.votos, ab), ab[0], ab[1]) + "</span>" : "";
   }
   function legendaT1(ok) {
     if (ok === undefined) ok = !!M1;
@@ -799,14 +807,14 @@ if (typeof document !== "undefined") (function (N) {
       tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.pct_eleit, brp(r.pct_eleit) + "%") +
       tdN(r.te) + tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") +
       tdN(r.tv) + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) + cand +
-      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) +
+      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
       '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" + tdN(r.por_apurar) +
       tdN(r.por_vir, null, r.base_taxa === "BRASIL" ? "<br>(taxa BR)" : "") +
       '<td class="n">' + esc(r.dg.slice(0, 5)) + "<br>" + esc(r.hg) + '</td><td class="l">' + situacaoLeitura(info) + "</td></tr>";
   }
   function tabelaUfs(m) {
     var ab = par(m);
-    var larg = [5.5, 5.5, 4, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 4, 4, 6, 6, 5.5, 4, 5.5, 5.5, 5, 4];  // soma 100
+    var larg = [5.5, 5.5, 3.5, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 3.5, 3.5, 6, 6, 7.5, 4, 5.5, 5.5, 5, 3.5];  // soma 100
     var corpo = N.UFS.map(function (uf) {
       return linhaUf(ufLink(uf), m.linhas[uf], m.leitura[uf], m, "", uf);
     }).join("") + linhaUf(ufLink("zz", "EXTERIOR"), m.linhas.zz, m.leitura.zz, m, "fixa", "zz") +
@@ -825,7 +833,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!r) return "<tr" + cls + '><td class="l">' + rot + '</td><td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + '><td class="l">' + rot + "</td>" + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
         ab.map(function (nm) { return tdN(r.pct_cand[nm] || 0, brp(r.pct_cand[nm] || 0) + "%" + t1(chave, nm)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "",
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "",
             classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }
     return '<table class="ord" id="t-cel"><colgroup><col style="width:17%"><col style="width:16%"><col style="width:15%">' +
@@ -860,7 +868,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!r) return "<tr" + cls + ">" + nome + '<td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + ">" + nome + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }).join("");
     var larga = lista.map(function (x, i) {
       var cls = x.tot ? ' class="tot"' : "", r = x.r, chave = x.tot ? "br" : "reg:" + i;
@@ -877,7 +885,7 @@ if (typeof document !== "undefined") (function (N) {
         tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.te) +
         tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero)) +
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
         '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="l">' + (x.nome === "Exterior" ? "—" : esc(curto(ab[0])) + " " + na + " · " + esc(curto(ab[1])) + " " + nb) + "</td>" +
         '<td class="l">' + (x.tot ? "OK" : leitura(x)) + "</td></tr>";
@@ -886,10 +894,10 @@ if (typeof document !== "undefined") (function (N) {
       '<col style="width:23%"><col style="width:14%"><col style="width:15%"><col style="width:15%"><col style="width:33%"></colgroup>' +
       "<thead><tr><th>Região</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) +
       "</th><th>Diferença</th></tr></thead><tbody>" + cel + "</tbody></table></div></div>" +
-      '<div class="rola so-largo"><table class="ord medio" id="t-reg"><colgroup><col style="width:8%"><col style="width:14%">' +
+      '<div class="rola so-largo"><table class="ord medio" id="t-reg"><colgroup><col style="width:8%"><col style="width:13%">' +
       '<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:5%"><col style="width:6%"><col style="width:5%">' +
-      '<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:5%"><col style="width:6%">' +
-      '<col style="width:5%"></colgroup><thead><tr><th>Região</th><th>Estados</th><th>Seções totalizadas</th><th>Aptos</th>' +
+      '<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:9%"><col style="width:5%"><col style="width:6%">' +
+      '<col style="width:4%"></colgroup><thead><tr><th>Região</th><th>Estados</th><th>Seções totalizadas</th><th>Aptos</th>' +
       "<th>Compare&shy;ceram</th><th>% comp.</th><th>Abstenção</th><th>% abst.</th><th>Válidos</th><th>" + esc(curto(ab[0])) +
       "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th><th>Líder</th><th>Estados à frente</th><th>Leitura</th>" +
       "</tr></thead><tbody>" + larga + "</tbody></table></div>";
@@ -1328,8 +1336,10 @@ if (typeof document !== "undefined") (function (N) {
       var x = CID.dados[c[0]];
       return { cd: c[0], nome: c[1], r: x && x.d ? N.calcula(x.d) : null, falha: x ? x.falha : "" };
     });
-    function celDif(r) {
-      return tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(soDois(r.votos, ab), r.numero));
+    function celDif(r, cd) {
+      var x = CFG.turno === 2 && CID.t1 && CID.t1[cd];
+      var dif1 = x && x.votos ? '<br><span class="t1">' + txtDif(soDois(x.votos, ab), ab[0], ab[1]) + "</span>" : "";
+      return tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + dif1, "", classeLider(soDois(r.votos, ab), r.numero));
     }
     function t1m(cd, k) {
       var x = CFG.turno === 2 && CID.t1 && CID.t1[cd];
@@ -1343,7 +1353,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!x.r) return "<tr>" + nm + '<td colspan="4" class="l">' + (x.falha ? "FALHA NA LEITURA" : "carregando...") + "</td></tr>";
       var r = x.r;
       return "<tr>" + nm + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
-        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") + celDif(r) + "</tr>";
+        ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") + celDif(r, x.cd) + "</tr>";
     }).join("");
     var larga = lin.map(function (x) {
       var nm = '<td class="l" data-nome="' + esc(semAcento(x.nome)) + '">' + esc(x.nome) + "</td>";
@@ -1352,7 +1362,7 @@ if (typeof document !== "undefined") (function (N) {
       return "<tr>" + nm + tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.te) + tdN(r.c) +
         tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") +
-        celDif(r) + '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
+        celDif(r, x.cd) + '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="n">' + esc(r.hg) + '</td><td class="l">' + situ(x) + "</td></tr>";
     }).join("");
     var resumo = ruf ? '<p class="cab cid-resumo"><b>' + esc(nomeUf(uf)) + ":</b> " + brp(ruf.pct_sec) + "% das seções · " +
