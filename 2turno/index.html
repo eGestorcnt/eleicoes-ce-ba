@@ -10,6 +10,7 @@ tbody tr:nth-child(even) td{background:#F0F0F0}
 .rola{overflow-x:auto}
 .rola>table{min-width:1500px}
 .rola>table.medio{min-width:1050px}
+.rola>table.estreito{min-width:640px}
 .rola>table#t-cel{min-width:0}
 .l{text-align:left}
 tr.tot td{font-weight:bold;background:#E4E4E4 !important}
@@ -26,7 +27,7 @@ th[data-seta]::after{content:" " attr(data-seta)}
 @page{size:297mm 210mm;margin:8mm 8mm 12mm 8mm}
 @media print{.naoimprime{display:none}body{margin:0;font-size:7pt}
  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}h2{break-after:avoid}
- th,td{padding:1px 2px}h1{font-size:13pt}.n{white-space:normal}.rola{overflow:visible}.rola>table,.rola>table.medio{min-width:0}}
+ th,td{padding:1px 2px}h1{font-size:13pt}.n{white-space:normal}.rola{overflow:visible}.rola>table,.rola>table.medio,.rola>table.estreito{min-width:0}}
 body.modo-pdf{margin:0;font-size:7pt}
 .cor{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:middle}
 .band{width:22px;height:15px;object-fit:cover;vertical-align:-3px;margin-right:5px;border:1px solid #CBD5E1}
@@ -83,6 +84,13 @@ body.modo-pdf{margin:0;font-size:7pt}
  th{background:#F8FAFC;color:#475569;font-weight:700;font-size:11px;letter-spacing:.02em}
  tbody tr:nth-child(even) td{background:transparent}
  tbody tr:hover td{background:#F8FAFC}
+ /* Diferença: fundo claro na cor de quem lidera (13 = vermelho bem claro, 22 = azul claro) */
+ #conteudo td.lid-13{background:#FDE8E8 !important}
+ #conteudo td.lid-22{background:#DCEBFF !important}
+ /* primeira coluna (UF) congelada ao rolar a tabela para o lado */
+ .rola td:first-child,.rola th:first-child{position:sticky;left:0;z-index:1;background:#fff;box-shadow:1px 0 0 #E2E8F0}
+ .rola th:first-child{background:#F8FAFC;z-index:2}
+ .rola tbody tr:hover td:first-child{background:#F8FAFC}
  tr.tot td{background:#E2E8F0 !important;border-top:2px solid #0F172A}
  tr.fixa td{background:#fff !important;font-style:normal;color:#334155}
  .n{font-family:inherit;font-variant-numeric:tabular-nums}
@@ -105,8 +113,8 @@ body.modo-pdf{margin:0;font-size:7pt}
   .botao-completa{display:inline-block;margin:8px 0;background:#fff;border:1px solid #CBD5E1;border-radius:6px;padding:8px 14px;font:600 13px 'Segoe UI',system-ui,Arial,sans-serif}
   #t-cel td,#t-cel th{padding:8px 4px;font-size:12px}
   #t-cel th{white-space:nowrap;font-size:10px}
-  #t-cel td:last-child{white-space:normal}
+  #t-cel td:last-child{white-space:nowrap;font-size:11.5px;padding-left:2px}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792935318"></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792936783"></script></body></html>

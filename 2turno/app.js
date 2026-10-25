@@ -178,9 +178,17 @@ if (typeof document !== "undefined") (function (N) {
     if (d === 0) return Object.keys(votos).some(function (k) { return votos[k]; }) ? "EMPATE" : "—";
     return curto(d > 0 ? a : b) + " +" + br(Math.abs(d));
   }
-  function tdN(v, texto, extra) {
-    if (v === null || v === undefined) return '<td class="n" data-v="">—' + (extra || "") + "</td>";
-    return '<td class="n" data-v="' + v.toFixed(4) + '">' + (texto !== undefined && texto !== null ? texto : br(v)) + (extra || "") + "</td>";
+  // Diferença: fundo claro na cor de quem lidera (classes lid-13 / lid-22 do CSS do painel)
+  function classeLider(votos, numero) {
+    var arred = {};
+    Object.keys(votos || {}).forEach(function (k) { arred[k] = Math.round(votos[k]); });
+    var n = (numero || {})[N.lider(arred)] || "";
+    return COR[n] ? " lid-" + n : "";
+  }
+  function tdN(v, texto, extra, classe) {
+    classe = classe || "";
+    if (v === null || v === undefined) return '<td class="n' + classe + '" data-v="">—' + (extra || "") + "</td>";
+    return '<td class="n' + classe + '" data-v="' + v.toFixed(4) + '">' + (texto !== undefined && texto !== null ? texto : br(v)) + (extra || "") + "</td>";
   }
 
   // ---- busca
@@ -349,7 +357,7 @@ if (typeof document !== "undefined") (function (N) {
       tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.pct_eleit, brp(r.pct_eleit) + "%") +
       tdN(r.te) + tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") +
       tdN(r.tv) + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) + cand +
-      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1])) +
+      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "", classeLider(r.votos, r.numero)) +
       '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" + tdN(r.por_apurar) +
       tdN(r.por_vir, null, r.base_taxa === "BRASIL" ? "<br>(taxa BR)" : "") +
       '<td class="n">' + esc(r.dg.slice(0, 5)) + "<br>" + esc(r.hg) + '</td><td class="l">' + situacaoLeitura(info) + "</td></tr>";
@@ -374,10 +382,11 @@ if (typeof document !== "undefined") (function (N) {
       if (!r) return "<tr" + cls + '><td class="l">' + rot + '</td><td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + '><td class="l">' + rot + "</td>" + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
         ab.map(function (nm) { return tdN(r.pct_cand[nm] || 0, brp(r.pct_cand[nm] || 0) + "%"); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), marca(r, r.lider) + txtDif(r.votos, ab[0], ab[1])) + "</tr>";
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]), "",
+            classeLider(r.votos, r.numero)) + "</tr>";
     }
-    return '<table class="ord" id="t-cel"><colgroup><col style="width:18%"><col style="width:17%"><col style="width:17%">' +
-      '<col style="width:17%"><col style="width:31%"></colgroup><thead><tr><th>UF</th><th>Apurado</th><th>' +
+    return '<table class="ord" id="t-cel"><colgroup><col style="width:17%"><col style="width:16%"><col style="width:15%">' +
+      '<col style="width:15%"><col style="width:37%"></colgroup><thead><tr><th>UF</th><th>Apurado</th><th>' +
       esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th></tr></thead><tbody>" +
       N.UFS.map(function (uf) { return linha(band(uf) + uf.toUpperCase(), m.linhas[uf]); }).join("") +
       linha("EXTERIOR", m.linhas.zz, "fixa") + linha(band("br") + "BRASIL", m.br, "tot") + "</tbody></table>";
@@ -391,7 +400,8 @@ if (typeof document !== "undefined") (function (N) {
     return "<tr" + cls + '><td class="l">' + rot + "</td>" + cp + tdN(r.por_apurar) + tdN(r.por_vir) +
       '<td class="l">' + esc(base || r.base_taxa || "UF") + "</td>" + tdN(tv) +
       ab.map(function (nm) { return tdN(N.pct(r.proj[nm] || 0, tv), br(r.proj[nm] || 0) + "<br>" + brp(N.pct(r.proj[nm] || 0, tv)) + "%"); }).join("") +
-      tdN((r.proj[ab[0]] || 0) - (r.proj[ab[1]] || 0), txtDif(r.proj, ab[0], ab[1])) + '<td class="l">' + esc(nomeLider(lid)) + "</td></tr>";
+      tdN((r.proj[ab[0]] || 0) - (r.proj[ab[1]] || 0), txtDif(r.proj, ab[0], ab[1]), "",
+          classeLider(r.proj, r.numero || (m.br || {}).numero)) + '<td class="l">' + esc(nomeLider(lid)) + "</td></tr>";
   }
   function tabelaProjecao(m) {
     var ab = par(m);
@@ -441,13 +451,13 @@ if (typeof document !== "undefined") (function (N) {
       }
     });
     if (!itens.length) return '<p class="cab">Nenhuma UF parada: todas as que não chegaram a 100% foram totalizadas nos últimos ' + CFG.parada_min + " minutos.</p>";
-    return '<table id="t-paradas"><colgroup><col style="width:12%"><col style="width:22%"><col style="width:66%"></colgroup>' +
+    return '<table class="estreito" id="t-paradas"><colgroup><col style="width:12%"><col style="width:22%"><col style="width:66%"></colgroup>' +
       "<thead><tr><th>UF</th><th>Situação</th><th>Detalhe</th></tr></thead><tbody>" + itens.map(function (i) {
         return '<tr><td class="l">' + i[0] + '</td><td class="l">' + i[1] + '</td><td class="l">' + esc(i[2]) + "</td></tr>";
       }).join("") + "</tbody></table>";
   }
   function tabelaConferencia(m) {
-    return '<table id="t-conf"><colgroup><col style="width:34%"><col style="width:18%"><col style="width:18%">' +
+    return '<table class="estreito" id="t-conf"><colgroup><col style="width:34%"><col style="width:18%"><col style="width:18%">' +
       '<col style="width:14%"><col style="width:16%"></colgroup><thead><tr><th>Grandeza</th><th>Arquivo do Brasil (br)</th>' +
       "<th>Soma das 27 UFs + exterior</th><th>Diferença</th><th>Situação</th></tr></thead><tbody>" + m.conf.map(function (c) {
         if (c[1] === null) return '<tr><td class="l">' + esc(c[0]) + '</td><td colspan="4" class="l">' + esc(c[3]) + "</td></tr>";
@@ -457,7 +467,7 @@ if (typeof document !== "undefined") (function (N) {
   function tabelaEvolucao(m) {
     var ab = par(m), h = evolucao.slice(-40).reverse();
     if (!h.length) return '<p class="cab">Sem leituras ainda.</p>';
-    return '<table id="t-evol"><thead><tr><th>Leitura</th><th>Totalização TSE</th><th>% seções</th><th>Seções</th>' +
+    return '<table class="estreito" id="t-evol"><thead><tr><th>Leitura</th><th>Totalização TSE</th><th>% seções</th><th>Seções</th>' +
       "<th>Votos apurados</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th></tr></thead><tbody>" +
       h.map(function (x) {
         return '<tr><td class="n">' + x.leitura + '</td><td class="n">' + esc(x.hg) + '</td><td class="n">' + brp(x.pct_sec) +
