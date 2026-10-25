@@ -267,6 +267,18 @@ if (typeof document !== "undefined") (function (N) {
     }).join(" × ") + "; diferença projetada " + txtDif(pb.proj, ab[0], ab[1]) + ". Premissa: em cada UF, o eleitorado " +
       "das seções ainda não totalizadas comparece, anula e vota como nas seções já totalizadas da UF. Não é resultado.";
   }
+  // bandeira e % dos estados em que o candidato lidera, do maior % para o menor (no cartão)
+  function estadosNaFrente(m, nm) {
+    var lista = N.UFS.filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === nm; })
+      .map(function (uf) { return [uf, m.linhas[uf].pct_cand[nm] || 0]; })
+      .sort(function (x, y) { return y[1] - x[1]; });
+    if (!lista.length) return '<div class="estados"><div class="rotulo">À frente em 0 estados</div></div>';
+    return '<div class="estados"><div class="rotulo">À frente em ' + lista.length + " estado" + (lista.length > 1 ? "s" : "") +
+      '</div><div class="lista">' + lista.map(function (it) {
+        return '<span title="' + esc(CFG.nome_uf[it[0]]) + '">' + band(it[0]) + it[0].toUpperCase() + " " + brp(it[1]) + "%</span>";
+      }).join("") + "</div></div>";
+  }
+
   function painelBrasil(m) {
     var b = m.br;
     if (!b) return '<div class="cartao"><b>FALHA NA LEITURA do arquivo do Brasil.</b></div>';
@@ -279,7 +291,8 @@ if (typeof document !== "undefined") (function (N) {
       var sq = (b.sq || {})[nm], foto = /^\d+$/.test(sq || "") ?
         '<img class="foto" src="' + RAIZ + "/fotos/br/" + sq + '.jpeg" alt="Foto de ' + esc(nm) + '">' : "";
       return '<div class="cartao cand" style="--cor:' + cor(b, nm) + '"><div class="topo-cand">' + foto +
-        '<div><div class="num">Nº ' + esc(b.numero[nm]) + '</div><div class="nome">' + esc(nm) + "</div></div></div>" +
+        '<div><div class="num">Nº ' + esc(b.numero[nm]) + '</div><div class="nome">' + esc(nm) + "</div></div>" +
+        estadosNaFrente(m, nm) + "</div>" +
         '<div class="pct">' + brp(b.pct_cand[nm] || 0) + '%</div><div class="votos">' + br(b.votos[nm] || 0) +
         " votos válidos</div>" + (b.situacao[nm] ? '<div class="eleito">' + esc(b.situacao[nm].toUpperCase()) + "</div>" : "") + "</div>";
     }).join("");
@@ -343,7 +356,7 @@ if (typeof document !== "undefined") (function (N) {
   }
   function tabelaUfs(m) {
     var ab = par(m);
-    var larg = [4.5, 5.5, 4, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 4, 4, 6, 6, 6, 4, 5.5, 6, 5, 4];  // soma 100
+    var larg = [5.5, 5.5, 4, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 4, 4, 6, 6, 5.5, 4, 5.5, 5.5, 5, 4];  // soma 100
     var corpo = N.UFS.map(function (uf) {
       return linhaUf(band(uf) + '<span title="' + esc(CFG.nome_uf[uf]) + '">' + uf.toUpperCase() + "</span>", m.linhas[uf], m.leitura[uf], m);
     }).join("") + linhaUf("EXTERIOR", m.linhas.zz, m.leitura.zz, m, "fixa") + linhaUf(band("br") + "TOTAL BRASIL", m.br, m.leitura.br, m, "tot");

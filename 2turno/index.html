@@ -30,7 +30,8 @@ th[data-seta]::after{content:" " attr(data-seta)}
 body.modo-pdf{margin:0;font-size:7pt}
 .cor{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:middle}
 .band{width:22px;height:15px;object-fit:cover;vertical-align:-3px;margin-right:5px;border:1px solid #CBD5E1}
-#t-ufs td:first-child,#t-cel td:first-child{white-space:nowrap}
+#t-ufs tr:not(.tot):not(.fixa) td:first-child,#t-cel tr:not(.tot):not(.fixa) td:first-child{white-space:nowrap}
+#t-ufs td:first-child,#t-cel td:first-child,#t-proj td:first-child{overflow-wrap:normal}
 @media print{.so-tela,.cor,.band{display:none !important}}
 /* TELA: painel moderno. O PDF e a impressão usam só as regras acima (padrão contábil). */
 @media screen{
@@ -51,6 +52,11 @@ body.modo-pdf{margin:0;font-size:7pt}
  .cand{border-top:5px solid var(--cor)}
  .topo-cand{display:flex;gap:12px;align-items:center;margin-bottom:8px}
  .foto{width:72px;height:90px;object-fit:cover;border-radius:8px;border:none;flex:none;background:#E2E8F0}
+ .topo-cand{align-items:flex-start}
+ .cands>.cand{min-width:0}
+ .estados{margin-left:auto;text-align:right;flex:1 1 auto;min-width:0;padding-left:10px}
+ .estados .lista{display:grid;grid-template-columns:repeat(auto-fill,96px);max-width:204px;margin-left:auto;justify-content:end;gap:3px 12px;margin-top:4px;font-size:12px;font-variant-numeric:tabular-nums;text-align:left}
+ .estados .lista span{white-space:nowrap}
  .cand .num{font-size:12px;color:#64748B;font-weight:600}
  .cand .nome{font-size:16px;font-weight:700;margin:2px 0 6px}
  .cand .pct{font-size:44px;font-weight:800;color:var(--cor);line-height:1;font-variant-numeric:tabular-nums}
@@ -90,6 +96,7 @@ body.modo-pdf{margin:0;font-size:7pt}
   .grade{grid-template-columns:1fr}
   .cand .pct{font-size:34px}.cand{padding:12px}.cand .nome{font-size:14px}
   .topo-cand{flex-direction:column;align-items:flex-start;gap:6px}.foto{width:56px;height:70px}
+  .estados{margin-left:0;text-align:left;padding-left:0}.estados .lista{justify-content:start;grid-template-columns:auto;gap:3px;margin-left:0}
   .barra{padding:12px 16px}.barra .titulo{font-size:18px}
   .barra .botoes button{padding:6px 10px}
   .kpis{grid-template-columns:1fr 1fr;gap:8px}.kpi .valor{font-size:16px}
@@ -102,4 +109,4 @@ body.modo-pdf{margin:0;font-size:7pt}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792934708"></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "alertar": [], "patrocinio": null}</script><script src="app.js?v=1792935318"></script></body></html>
