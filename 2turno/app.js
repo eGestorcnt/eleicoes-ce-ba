@@ -388,9 +388,9 @@ if (typeof module !== "undefined") module.exports = NUCLEO;
 if (typeof document !== "undefined") (function (N) {
   var CFG = JSON.parse(document.getElementById("config").textContent);
   var RAIZ = "https://resultados.tse.jus.br/oficial/ele2026/" + CFG.eleicao;
-  // 10 s: o CDN do TSE guarda cada arquivo ~60 s; dentro desse prazo o próprio navegador responde do cache,
-  // então pedir a cada 10 s pega a versão nova logo que sai, sem pesar no TSE
-  var INTERVALO = 10;
+  // 5 s: o CDN do TSE guarda cada arquivo ~60 s; dentro desse prazo o próprio navegador responde do cache,
+  // então pedir a cada 5 s pega a versão nova logo que sai, sem pesar no TSE
+  var INTERVALO = 5;
   var COR = { "13": "#C62828", "22": "#1D4ED8" };
   var ultimo = {}, anterior = {}, alertas = [], alertados = {}, evolucao = [];
   // evolução e alertas ficam guardados NESTE navegador (recarregar a página não apaga); só conveniência:
