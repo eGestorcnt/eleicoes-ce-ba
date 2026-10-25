@@ -314,8 +314,30 @@ var NUCLEO = (function () {
     });
   }
 
+  // ---- projeção PELO 1º TURNO: em cada UF, os válidos que ainda faltam (mesma estimativa da projeção principal:
+  // proj_validos − válidos já apurados) se dividem entre os dois como se dividiram no 1º turno daquela UF,
+  // contando só os votos dos dois. Brasil = soma das UFs e do exterior (some se faltar uma unidade).
+  function projecaoPeloT1(m2, m1, ab) {
+    var tot = { proj: {}, proj_validos: 0, faltam: [] }, linhas = {};
+    ab.forEach(function (nm) { tot.proj[nm] = 0; });
+    PARTES.forEach(function (uf) {
+      var r = m2.linhas[uf], r1 = m1 && m1.linhas[uf];
+      var s1 = r1 ? (r1.votos[ab[0]] || 0) + (r1.votos[ab[1]] || 0) : 0;
+      if (!r || r.proj_validos === null || r.proj_validos === undefined || !s1) { tot.faltam.push(uf); linhas[uf] = null; return; }
+      var faltaVal = r.proj_validos - r.vv, p = {};
+      ab.forEach(function (nm) {
+        p[nm] = (r.votos[nm] || 0) + faltaVal * (r1.votos[nm] || 0) / s1;
+        tot.proj[nm] += p[nm];
+      });
+      tot.proj_validos += r.proj_validos;
+      linhas[uf] = { proj: p, proj_validos: r.proj_validos };
+    });
+    if (tot.faltam.length) tot.proj = null;
+    return { linhas: linhas, br: tot };
+  }
+
   return { UFS: UFS, EXTERIOR: EXTERIOR, PARTES: PARTES, ARQUIVOS: ARQUIVOS, REGIOES: REGIOES, somaRegiao: somaRegiao,
-           fraseResumo: fraseResumo, comparaTurnos: comparaTurnos,
+           fraseResumo: fraseResumo, comparaTurnos: comparaTurnos, projecaoPeloT1: projecaoPeloT1,
            boletim: boletim, resumoBoletim: resumoBoletim,
            inteiro: inteiro, extrai: extrai,
            pct: pct, lider: lider, referencia: referencia, calcula: calcula, somaProjecao: somaProjecao,
@@ -327,7 +349,9 @@ if (typeof module !== "undefined") module.exports = NUCLEO;
 if (typeof document !== "undefined") (function (N) {
   var CFG = JSON.parse(document.getElementById("config").textContent);
   var RAIZ = "https://resultados.tse.jus.br/oficial/ele2026/" + CFG.eleicao;
-  var INTERVALO = 60;
+  // 10 s: o CDN do TSE guarda cada arquivo ~60 s; dentro desse prazo o próprio navegador responde do cache,
+  // então pedir a cada 10 s pega a versão nova logo que sai, sem pesar no TSE
+  var INTERVALO = 10;
   var COR = { "13": "#C62828", "22": "#1D4ED8" };
   var ultimo = {}, anterior = {}, alertas = [], alertados = {}, evolucao = [];
   // evolução e alertas ficam guardados NESTE navegador (recarregar a página não apaga); só conveniência:
@@ -476,6 +500,18 @@ if (typeof document !== "undefined") (function (N) {
     if (info.lido_em) return '<span class="falha">FALHA NA LEITURA — valor anterior</span><br>sem atualização desde ' + info.lido_em;
     return '<span class="falha">FALHA NA LEITURA</span><br>sem leitura anterior';
   }
+  function textoProjecaoT1(m) {
+    if (erroT1) return "PROJEÇÃO PELO 1º TURNO: FALHA NA LEITURA do resultado do 1º turno.";
+    if (!M1) return "PROJEÇÃO PELO 1º TURNO: carregando o resultado do 1º turno...";
+    var ab = par(m), p = N.projecaoPeloT1(m, M1, ab).br;
+    if (!p.proj) return "PROJEÇÃO PELO 1º TURNO: sem base ainda — nenhuma seção totalizada.";
+    var tv = p.proj_validos;
+    return "PROJEÇÃO PELO 1º TURNO (ESTIMATIVA, soma das UFs): " + ab.map(function (nm) {
+      return curto(nm) + " " + br(p.proj[nm]) + " (" + brp(N.pct(p.proj[nm], tv)) + "%)";
+    }).join(" × ") + "; diferença projetada " + txtDif(p.proj, ab[0], ab[1]) + ". Premissa: em cada UF, os votos válidos " +
+      "que ainda faltam se dividem entre os dois como se dividiram no 1º turno daquela UF (só os votos dos dois). Não é resultado.";
+  }
+
   function textoProjecao(m) {
     var pb = m.proj_br, ab = par(m);
     if (m.br && m.br.ts && m.br.st >= m.br.ts) {
@@ -546,7 +582,8 @@ if (typeof document !== "undefined") (function (N) {
       kpis.map(function (k) {
         return '<div class="cartao kpi"><div class="rotulo">' + k[0] + '</div><div class="valor">' + k[1] +
           '</div><div class="sub">' + k[2] + "</div></div>";
-      }).join("") + '</div><div class="cartao proj">' + esc(textoProjecao(m)) + "</div>";
+      }).join("") + '</div><div class="cartao proj">' + esc(textoProjecao(m)) + "</div>" +
+      (CFG.turno === 2 && !(b.ts && b.st >= b.ts) ? '<div class="cartao proj proj2">' + esc(textoProjecaoT1(m)) + "</div>" : "");
   }
   function rankingCandidatos(m) {
     var b = m.br;
@@ -625,6 +662,16 @@ if (typeof document !== "undefined") (function (N) {
       N.UFS.map(function (uf) { return linha(ufLink(uf), m.linhas[uf]); }).join("") +
       linha(ufLink("zz", "EXTERIOR"), m.linhas.zz, "fixa") + linha(band("br") + "BRASIL", m.br, "tot") + "</tbody></table>";
   }
+  function avisoDivergencia(m) {
+    if (!m.br) return "";
+    var soma = N.PARTES.reduce(function (s, uf) { return s + ((m.linhas[uf] || {}).st || 0); }, 0);
+    if (soma === m.br.st) return "";
+    return '<p class="cab aviso-div"><b>ATENÇÃO:</b> o total do Brasil vem do arquivo nacional do TSE (' + br(m.br.st) +
+      " seções, totalização das " + esc(m.br.hg) + "), e as regiões e os estados vêm dos arquivos estaduais, que somam " +
+      br(soma) + " seções. O TSE publica o nacional e os estaduais em momentos diferentes; por isso a soma das regiões " +
+      "pode não bater com a linha do Brasil até os arquivos se igualarem.</p>";
+  }
+
   function quadroRegioes(m) {
     var ab = par(m);
     function lidera(r, nm) {
@@ -815,12 +862,18 @@ if (typeof document !== "undefined") (function (N) {
       return baixaUrl(raiz1 + uf + "/" + uf + "-c0001-e" + e6 + "-u.jws").then(function (j) {
         u1[uf] = { dados: N.extrai(j), lido_em: "", falha: "" };
       }, function (e) { u1[uf] = { dados: null, lido_em: "", falha: String(e && e.message || e) }; });
-    })).then(function () { M1 = N.monta(u1); if (M) desenha(); }, function (e) { erroT1 = String(e); });
+    })).then(function () { M1 = N.monta(u1); if (M) desenhaPreservando(); }, function (e) { erroT1 = String(e); });
   }
   function quadroComparacao(m) {
     if (erroT1) return '<p class="cab"><b>FALHA NA LEITURA</b> do resultado do 1º turno.</p>';
     if (!M1) return '<p class="cab">Carregando o resultado do 1º turno...</p>';
     var ab = par(m), linhas = N.comparaTurnos(M1, m, ab), numero = (m.br || {}).numero;
+    var pt1 = N.projecaoPeloT1(m, M1, ab);
+    function celPT1(o) {
+      var r = o.uf === "br" ? (pt1.br.proj ? pt1.br : null) : pt1.linhas[o.uf];
+      if (!r) return '<td class="n" data-v="">—</td>';
+      return tdN((r.proj[ab[0]] || 0) - (r.proj[ab[1]] || 0), txtDif(r.proj, ab[0], ab[1]), "", classeLider(soDois(r.proj, ab), numero));
+    }
     function rot(o) { return o.uf === "br" ? "BRASIL" : o.uf === "zz" ? ufLink("zz", "EXTERIOR") : ufLink(o.uf); }
     function cls(o) { return o.uf === "br" ? ' class="tot"' : o.uf === "zz" ? ' class="fixa"' : ""; }
     function pp(v) { return v === null ? "—" : (v >= 0 ? "+" : "") + brp(v) + " p.p."; }
@@ -840,11 +893,11 @@ if (typeof document !== "undefined") (function (N) {
       }).join("") + '<td class="l">' + situ(o) + "</td></tr>";
     }).join("");
     var larga = linhas.map(function (o) {
-      if (o.falta) return "<tr" + cls(o) + '><td class="l">' + rot(o) + '</td><td colspan="9" class="l">FALHA NA LEITURA</td></tr>';
+      if (o.falta) return "<tr" + cls(o) + '><td class="l">' + rot(o) + '</td><td colspan="10" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls(o) + '><td class="l">' + rot(o) + "</td>" + ab.map(function (k) {
         return tdN(o.p1[k], brp(o.p1[k]) + "%") + tdN(o.p2[k], o.p2[k] === null ? "—" : brp(o.p2[k]) + "%") + tdN(o.var[k], pp(o.var[k]));
       }).join("") + '<td class="l">' + frente(o.lider1, numero) + '</td><td class="l' + (o.lider2 ? classeLider(soDois(o.uf === "br" ? m.br.votos :
-        (m.linhas[o.uf] || {}).votos, ab), numero) : "") + '">' + frente(o.lider2, numero) + '</td><td class="l">' + situ(o) + "</td></tr>";
+        (m.linhas[o.uf] || {}).votos, ab), numero) : "") + '">' + frente(o.lider2, numero) + '</td><td class="l">' + situ(o) + "</td>" + celPT1(o) + "</tr>";
     }).join("");
     return '<p class="cab">Percentual dos votos válidos de cada um no 1º turno (04/10, com 12 candidatos) e agora. ' +
       "No 1º turno os votos se dividiam entre mais candidatos, por isso os dois tendem a subir; " +
@@ -855,7 +908,8 @@ if (typeof document !== "undefined") (function (N) {
       cel + "</tbody></table></div></div>" +
       '<div class="rola so-largo"><table class="ord medio" id="t-comp"><thead><tr><th>UF</th>' + ab.map(function (k) {
         return "<th>" + esc(curto(k)) + " 1º turno</th><th>" + esc(curto(k)) + " agora</th><th>Variação " + esc(curto(k)) + "</th>";
-      }).join("") + "<th>À frente no 1º turno</th><th>À frente agora</th><th>Situação</th></tr></thead><tbody>" + larga +
+      }).join("") + "<th>À frente no 1º turno</th><th>À frente agora</th><th>Situação</th>" +
+      "<th>Projeção pelo 1º turno (diferença)</th></tr></thead><tbody>" + larga +
       "</tbody></table></div>";
   }
 
@@ -871,7 +925,7 @@ if (typeof document !== "undefined") (function (N) {
     document.getElementById("conteudo").innerHTML =
       '<header class="barra so-tela"><div><div class="sobre">' + esc(CFG.rotulo) + '</div>' +
       '<div class="titulo">Apuração por estado</div><div class="vivo"><span class="estado">' + (conc ? "ENCERRADO" : "AO VIVO") +
-      "</span>" + esc(situacao(m)) + " · leitura " + hora(agora) + (conc ? "" : ' · nova leitura em <b id="contador">' + falta + " s</b>") +
+      "</span>" + esc(situacao(m)) + ' · leitura <span id="hora-leitura">' + hora(agora) + "</span>" + (conc ? "" : ' · nova leitura em <b id="contador">' + falta + " s</b>") +
       '</div><div class="vivo">Fonte: TSE (resultados oficiais e fotos) · falhas de leitura: ' + (falhas.join(", ") || "nenhuma") +
       " · " + conf + '</div></div>' + trocaTurno() + '<div class="botoes">' + botoesCompartilhar(m) +
       '<button type="button" data-acao="pdf">Imprimir / PDF</button>' +
@@ -885,7 +939,7 @@ if (typeof document !== "undefined") (function (N) {
       '<section class="so-tela">' + painelBrasil(m) + "</section>" +
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
-      "<h2>Por região</h2>" + quadroRegioes(m) +
+      "<h2>Por região</h2>" + avisoDivergencia(m) + quadroRegioes(m) +
       '<h2>Por estado</h2><div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
@@ -1292,13 +1346,34 @@ if (typeof document !== "undefined") (function (N) {
     }
   });
 
+  var ultimaAssinatura = "";
+  function assinatura() {
+    return N.ARQUIVOS.map(function (uf) {
+      var u = ultimo[uf] || {}, d = u.dados || {};
+      return [d.dg, d.hg, d.st, d.tv, u.falha ? 1 : 0].join("|");
+    }).join(";");
+  }
+  function desenhaPreservando() {
+    var rolagem = {};
+    document.querySelectorAll("#conteudo .rola").forEach(function (r) {
+      var t = r.querySelector("table[id]");
+      if (t && r.scrollLeft) rolagem[t.id] = r.scrollLeft;
+    });
+    desenha();
+    Object.keys(rolagem).forEach(function (id) {
+      var t = document.getElementById(id);
+      if (t && t.parentElement) t.parentElement.scrollLeft = rolagem[id];
+    });
+  }
   function rodada() {
     ciclo().then(function (agora) {
       var primeira = !M;
       M = N.monta(ultimo); agoraUlt = agora;
       registra(M, agora);
       falta = INTERVALO;
-      desenha();
+      var sig = assinatura();
+      if (primeira || sig !== ultimaAssinatura) { ultimaAssinatura = sig; desenhaPreservando(); }
+      else { var hl = document.getElementById("hora-leitura"); if (hl) hl.textContent = hora(agora); }
       var h = /^#cidades-([a-z]{2})$/.exec(location.hash);
       if (primeira && h) abreCidades(h[1], true);
       else if (CID.uf && CID.nomes) statusCidades();
