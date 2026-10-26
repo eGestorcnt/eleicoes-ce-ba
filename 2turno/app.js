@@ -1121,7 +1121,11 @@ if (typeof document !== "undefined") (function (N) {
     var cab = "<th>UF</th><th>Seções até " + hh + "</th><th>Seções depois</th><th>% comp. até</th><th>% comp. depois</th>" +
       ab.map(function (nm) { return "<th>" + esc(curto(nm)) + " até</th><th>" + esc(curto(nm)) + " depois</th>"; }).join("") +
       "<th>Diferença até</th><th>Diferença depois</th>";
-    return resumo + '<div class="rola alta"><table class="ord medio" id="t-enc"><thead><tr>' + cab + "</tr></thead><tbody>" + corpo +
+    // larguras fixas (somam 100): sem elas a Diferença ficava estreita e o número invadia a coluna ao lado
+    var larg = [10, 8, 9, 8, 8, 8, 8, 8, 8, 12.5, 12.5];
+    return resumo + '<div class="rola alta"><table class="ord medio" id="t-enc"><colgroup>' + larg.map(function (w) {
+      return '<col style="width:' + w + '%">';
+    }).join("") + "</colgroup><thead><tr>" + cab + "</tr></thead><tbody>" + corpo +
       "</tbody></table></div>" + '<p class="cab">% dos candidatos sobre os votos válidos de cada grupo de urnas; % de ' +
       "comparecimento sobre os aptos das seções do grupo." + (semTot ? " Seções sem horário de encerramento no boletim: " +
       br(semTot) + " (fora das duas colunas)." : "") + "</p>";
