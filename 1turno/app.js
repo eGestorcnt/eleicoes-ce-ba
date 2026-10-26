@@ -554,6 +554,9 @@ if (typeof document !== "undefined") (function (N) {
     if (!M1) return "PROJEÇÃO PELO 1º TURNO: carregando o resultado do 1º turno...";
     var ab = par(m), p = N.projecaoPeloT1(m, M1, ab).br;
     if (!p.proj) return "PROJEÇÃO PELO 1º TURNO: sem base ainda — nenhuma seção totalizada.";
+    return txtProjT1(p, ab);
+  }
+  function txtProjT1(p, ab) {
     var tv = p.proj_validos;
     return "PROJEÇÃO PELO 1º TURNO (ESTIMATIVA, soma das UFs): " + ab.map(function (nm) {
       return curto(nm) + " " + br(p.proj[nm]) + " (" + brp(N.pct(p.proj[nm], tv)) + "%)";
@@ -567,6 +570,9 @@ if (typeof document !== "undefined") (function (N) {
       return "Apuração concluída: 100% das seções totalizadas. Os números acima são o resultado oficial do TSE — não há projeção.";
     }
     if (!pb.proj) return "PROJEÇÃO do Brasil: sem base ainda — nenhuma seção totalizada.";
+    return txtProjBr(pb, ab);
+  }
+  function txtProjBr(pb, ab) {
     var tv = pb.proj_validos;
     return "PROJEÇÃO ao fim da apuração (ESTIMATIVA, soma das UFs): " + ab.map(function (nm) {
       return curto(nm) + " " + br(pb.proj[nm] || 0) + " (" + brp(N.pct(pb.proj[nm] || 0, tv)) + "%)";
@@ -609,8 +615,8 @@ if (typeof document !== "undefined") (function (N) {
       return '<div class="evo" data-evo="' + id + '">' + cab + '<p class="evo-vazio">O gráfico se forma a partir da 2ª leitura com seções novas. ' +
         "As leituras ficam guardadas neste navegador.</p></div>";
     }
-    var cx = document.getElementById("conteudo");
-    var W = Math.max(300, Math.min(620, (cx ? cx.clientWidth : 600) - 72)), H = 200;
+    var cx = document.getElementById("conteudo"), ant = document.querySelector('.evo[data-evo="' + id + '"]');
+    var W = Math.max(300, Math.min(1100, ant && ant.clientWidth ? ant.clientWidth : (cx ? cx.clientWidth : 600) - 72)), H = 200;
     var L = 30, R = 104, T = 8, B = 24, w = W - L - R, h = H - T - B;
     var xs = pts.map(function (x) { return x.pct_sec; });
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
@@ -659,8 +665,32 @@ if (typeof document !== "undefined") (function (N) {
     var ini = pts[0];
     return '<div class="evo" data-evo="' + id + '">' + cab + '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Evolução do percentual dos ' +
       "válidos de " + esc(ab.map(curto).join(" e ")) + ", de " + brp(ini.pct_sec) + "% a " + brp(pts[pts.length - 1].pct_sec) +
-      '% das seções totalizadas">' + g + '</svg><div class="evo-dica"></div><div class="evo-nota">' + br(pts.length) +
+      '% das seções totalizadas">' + g + '</svg><div class="evo-dica"></div><div class="evo-nota">' +
+      (id === "br" && pts.some(function (x) { return x.pj; }) ? "Passe o mouse (ou toque) no gráfico para ver, abaixo, as " +
+        "projeções daquele momento. " : "") + br(pts.length) +
       " leituras, desde " + esc(ini.leitura) + " (" + brp(ini.pct_sec) + "% das seções)</div></div>";
+  }
+  // mensagens de projeção de um momento do histórico (evolucao.json traz pj/pjv e p1/p1v de cada leitura do Brasil)
+  var PROJ_MOMENTO = false;
+  function projMomento(x, ab) {
+    var c1 = document.getElementById("proj-1"), c2 = document.getElementById("proj-2");
+    if (!c1) return;
+    var quando = "Mensagem das " + x.leitura + " (" + brp(x.pct_sec) + "% das seções). ";
+    c1.textContent = quando + (x.pj ? txtProjBr({ proj: x.pj, proj_validos: x.pjv }, ab) : "PROJEÇÃO: sem registro neste momento.");
+    c1.classList.add("momento");
+    if (c2) {
+      c2.textContent = quando + (x.p1 ? txtProjT1({ proj: x.p1, proj_validos: x.p1v }, ab) : "PROJEÇÃO PELO 1º TURNO: sem registro neste momento.");
+      c2.style.display = "";
+      c2.classList.add("momento");
+    }
+    PROJ_MOMENTO = true;
+  }
+  function projAgora() {
+    if (!PROJ_MOMENTO || !M) return;
+    PROJ_MOMENTO = false;
+    var c1 = document.getElementById("proj-1"), c2 = document.getElementById("proj-2"), b = M.br;
+    if (c1) { c1.textContent = textoProjecao(M); c1.classList.remove("momento"); }
+    if (c2) { c2.textContent = textoProjecaoT1(M); c2.classList.remove("momento"); c2.style.display = b.ts && b.st >= b.ts ? "none" : ""; }
   }
   function mostraEvo(ev) {
     var svg = ev.target && ev.target.closest ? ev.target.closest(".evo svg") : null;
@@ -669,11 +699,12 @@ if (typeof document !== "undefined") (function (N) {
       if (c === caixa && EVO) return;
       c.querySelectorAll(".evo-dica, .evo-x, .evo-p").forEach(function (el) { el.style.display = "none"; });
     });
-    if (!caixa || !EVO || !EVO.pts.length) return;
+    if (!caixa || !EVO || !EVO.pts.length) { projAgora(); return; }
     var dica = caixa.querySelector(".evo-dica"), linha = caixa.querySelector(".evo-x"), pts = caixa.querySelectorAll(".evo-p");
     var r = svg.getBoundingClientRect(), esc_ = r.width / EVO.W, xv = (ev.clientX - r.left) / esc_, i = 0;
     EVO.px.forEach(function (x, k) { if (Math.abs(x - xv) < Math.abs(EVO.px[i] - xv)) i = k; });
     var x = EVO.pts[i], ab = EVO.ab;
+    if (caixa.getAttribute("data-evo") === "br") projMomento(x, ab); else projAgora();
     linha.setAttribute("x1", EVO.px[i]); linha.setAttribute("x2", EVO.px[i]); linha.style.display = "";
     Array.prototype.forEach.call(pts, function (p) {
       var nm = ab[+p.getAttribute("data-i")];
@@ -689,6 +720,46 @@ if (typeof document !== "undefined") (function (N) {
   }
   document.addEventListener("pointermove", mostraEvo);
   document.addEventListener("pointerdown", mostraEvo);
+
+  // ---- cartão 1º turno × 2º turno no Brasil (página do 2º turno, com a apuração concluída): mesmas grandezas dos
+  // cartões de cima, lado a lado, com a variação (quantidade e, nos percentuais, pontos percentuais)
+  function sinal(d, txt) { return d > 0 ? "+" + txt : d < 0 ? "−" + txt : txt; }
+  function vInt(d) { return sinal(d, br(Math.abs(d))); }
+  function vPp(d) { return sinal(Math.round(d * 100), brp(Math.abs(d))) + " p.p."; }
+  function cartaoTurnos(m) {
+    var b2 = m.br, b1 = M1 && M1.br;
+    if (CFG.turno !== 2 || !b1 || !b2 || !(b2.ts && b2.st >= b2.ts)) return "";
+    var ab = par(m);
+    function pv(b, k) { return N.pct(b[k], b.tv); }
+    // [grandeza, texto 1º, texto 2º, variação]
+    var lin = [
+      ["Eleitores aptos", br(b1.te), br(b2.te), vInt(b2.te - b1.te)],
+      ["Compareceram", br(b1.c) + "<br>" + brp(b1.pct_comp) + "%", br(b2.c) + "<br>" + brp(b2.pct_comp) + "%",
+       vInt(b2.c - b1.c) + "<br>" + vPp(b2.pct_comp - b1.pct_comp)],
+      ["Abstenção", br(b1.a) + "<br>" + brp(b1.pct_abst) + "%", br(b2.a) + "<br>" + brp(b2.pct_abst) + "%",
+       vInt(b2.a - b1.a) + "<br>" + vPp(b2.pct_abst - b1.pct_abst)],
+      ["Votos válidos", br(b1.vv), br(b2.vv), vInt(b2.vv - b1.vv)],
+      ["Brancos", br(b1.vb) + "<br>" + brp(pv(b1, "vb")) + "% dos votos", br(b2.vb) + "<br>" + brp(pv(b2, "vb")) + "% dos votos",
+       vInt(b2.vb - b1.vb) + "<br>" + vPp(pv(b2, "vb") - pv(b1, "vb"))],
+      ["Nulos", br(b1.tvn) + "<br>" + brp(pv(b1, "tvn")) + "% dos votos", br(b2.tvn) + "<br>" + brp(pv(b2, "tvn")) + "% dos votos",
+       vInt(b2.tvn - b1.tvn) + "<br>" + vPp(pv(b2, "tvn") - pv(b1, "tvn"))]
+    ];
+    ab.forEach(function (nm) {
+      var v1 = b1.votos[nm] || 0, v2 = b2.votos[nm] || 0, p1 = b1.pct_cand[nm] || 0, p2 = b2.pct_cand[nm] || 0;
+      lin.push([marca(b2, nm) + esc(nm), br(v1) + "<br>" + brp(p1) + "% dos válidos", br(v2) + "<br>" + brp(p2) + "% dos válidos",
+                vInt(v2 - v1) + "<br>" + vPp(p2 - p1)]);
+    });
+    lin.push(["Diferença entre os dois", txtDif(soDois(b1.votos, ab), ab[0], ab[1]), txtDif(soDois(b2.votos, ab), ab[0], ab[1]),
+              varDif(b2.votos, b1.votos, ab).replace(/<[^>]+>/g, "").replace(/^var\. /, "")]);
+    return '<div class="cartao comp-turnos"><div class="rotulo">1º turno × 2º turno — Brasil</div>' +
+      '<table><colgroup><col style="width:28%"><col style="width:24%"><col style="width:24%"><col style="width:24%"></colgroup>' +
+      '<thead><tr><th>Grandeza</th><th>1º turno (04/10)</th><th>2º turno (25/10)</th><th>Variação</th></tr></thead><tbody>' +
+      lin.map(function (l) {
+        return '<tr><td class="l">' + l[0] + '</td><td class="n">' + l[1] + '</td><td class="n">' + l[2] + '</td><td class="n">' + l[3] + "</td></tr>";
+      }).join("") + "</tbody></table>" +
+      '<p class="cab">Resultado oficial do TSE nos dois turnos. Variação = 2º turno − 1º turno; nos percentuais, em pontos ' +
+      "percentuais (p.p.). No 1º turno os válidos se dividiram entre " + M1.ordem.length + " candidatos; no 2º, entre os dois.</p></div>";
+  }
 
   function painelBrasil(m) {
     var b = m.br;
@@ -738,8 +809,10 @@ if (typeof document !== "undefined") (function (N) {
       kpis.map(function (k) {
         return '<div class="cartao kpi"><div class="rotulo">' + k[0] + '</div><div class="valor">' + k[1] +
           '</div><div class="sub">' + k[2] + "</div></div>";
-      }).join("") + '</div><div class="cartao proj">' + esc(textoProjecao(m)) + "</div>" +
-      (CFG.turno === 2 && !(b.ts && b.st >= b.ts) ? '<div class="cartao proj proj2">' + esc(textoProjecaoT1(m)) + "</div>" : "");
+      }).join("") + '</div><div class="cartao proj" id="proj-1">' + esc(textoProjecao(m)) + "</div>" +
+      (CFG.turno === 2 ? '<div class="cartao proj proj2" id="proj-2"' + (b.ts && b.st >= b.ts ? ' style="display:none"' : "") + ">" +
+        esc(textoProjecaoT1(m)) + "</div>" : "") +
+      cartaoTurnos(m);
   }
   function rankingCandidatos(m) {
     var b = m.br;
