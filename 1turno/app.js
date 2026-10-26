@@ -1042,6 +1042,110 @@ if (typeof document !== "undefined") (function (N) {
     }
   }
 
+  // ---- votação pelo horário de encerramento das urnas (boletim de urna OFICIAL; encerramento.json gerado por
+  // encerramento.py a partir do "BU na Web" dos dados abertos do TSE). Cada linha do arquivo é um minuto de
+  // encerramento, em minutos depois das 17h de Brasília: [minuto, seções, aptos, comparecimento, votos do 1º e do
+  // 2º candidato de "cands", outros, brancos, nulos]. A pessoa digita o horário e a página soma até ele e depois.
+  var ENC = { dados: null, erro: "", hora: "17:15" };
+  try { ENC.hora = sessionStorage.getItem("hora-enc") || "17:15"; } catch (e) {}
+  function carregaEncerramento() {
+    fetch("encerramento.json?ts=" + Date.now()).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) { ENC.dados = j; if (M) desenhaPreservando(); },
+            function (e) { ENC.erro = String(e && e.message || e); if (M) desenhaPreservando(); });
+  }
+  function limiteEnc() {
+    var h = /^(\d{1,2}):(\d{2})/.exec(ENC.hora || "");
+    return h ? (+h[1]) * 60 + (+h[2]) - 17 * 60 : 15;
+  }
+  // soma das linhas: [0] encerradas até o limite (inclusive aquele minuto), [1] depois
+  function somaEnc(linhas, limite) {
+    var g = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
+    (linhas || []).forEach(function (l) {
+      var alvo = g[l[0] <= limite ? 0 : 1];
+      for (var i = 1; i < 9; i++) alvo[i - 1] += l[i];
+    });
+    return g;
+  }
+  function corpoEncerramento(m) {
+    var d = ENC.dados, ab = par(m), lim = limiteEnc();
+    // coluna de cada candidato da página dentro do arquivo (casada pelo número do TSE)
+    var col = ab.map(function (nm) {
+      var nr = String((m.br.numero || {})[nm] || "");
+      var j = d.cands[0].nr === nr ? 0 : (d.cands[1].nr === nr ? 1 : -1);
+      return j < 0 ? -1 : 3 + j;
+    });
+    if (col.indexOf(-1) >= 0) return '<p class="cab">Os candidatos do boletim de urna não conferem com os da página.</p>';
+    function pv(g, k) { var vv = g[3] + g[4] + g[5]; return vv ? 100 * g[col[k]] / vv : 0; }
+    function difTxt(g) {
+      var v = {}; v[ab[0]] = g[col[0]]; v[ab[1]] = g[col[1]];
+      return txtDif(v, ab[0], ab[1]);
+    }
+    function difCls(g) { var v = {}; v[ab[0]] = g[col[0]]; v[ab[1]] = g[col[1]]; return classeLider(v, m.br.numero); }
+    var tot = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]], semTot = 0;
+    function linha(rot, uf, classe) {
+      var u = d.uf[uf];
+      if (!u) return "";
+      var g = somaEnc(u.m, lim);
+      if (classe !== "tot") {
+        for (var i = 0; i < 8; i++) { tot[0][i] += g[0][i]; tot[1][i] += g[1][i]; }
+        semTot += u.sem ? u.sem[0] : 0;
+      }
+      return celulas(rot, g, classe);
+    }
+    function celulas(rot, g, classe) {
+      var sec = g[0][0] + g[1][0];
+      return "<tr" + (classe ? ' class="' + classe + '"' : "") + '><td class="l">' + rot + "</td>" +
+        tdN(g[0][0], br(g[0][0])) + tdN(g[1][0], br(g[1][0]) + "<br>" + brp(N.pct(g[1][0], sec)) + "%") +
+        tdN(N.pct(g[0][2], g[0][1]), brp(N.pct(g[0][2], g[0][1])) + "%") + tdN(N.pct(g[1][2], g[1][1]), brp(N.pct(g[1][2], g[1][1])) + "%") +
+        [0, 1].map(function (k) {
+          return tdN(pv(g[0], k), brp(pv(g[0], k)) + "%") + tdN(pv(g[1], k), brp(pv(g[1], k)) + "%");
+        }).join("") +
+        tdN(g[0][col[0]] - g[0][col[1]], difTxt(g[0]), "", difCls(g[0])) +
+        tdN(g[1][col[0]] - g[1][col[1]], difTxt(g[1]), "", difCls(g[1])) + "</tr>";
+    }
+    var corpo = N.UFS.map(function (uf) { return linha(ufLink(uf), uf); }).join("") + linha(ufLink("zz", "EXTERIOR"), "zz", "fixa");
+    corpo += celulas(band("br") + "TOTAL BRASIL", tot, "tot");
+    var hh = esc(ENC.hora), b0 = tot[0], b1 = tot[1], st = b0[0] + b1[0];
+    var resumo = '<p class="cab enc-resumo"><b>Até ' + hh + "</b>: " + br(b0[0]) + " seções (" + brp(N.pct(b0[0], st)) + "%) · " +
+      ab.map(function (nm, k) { return esc(curto(nm)) + " " + brp(pv(b0, k)) + "%"; }).join(" × ") + " · " + difTxt(b0) +
+      ". <b>Depois de " + hh + "</b>: " + br(b1[0]) + " seções (" + brp(N.pct(b1[0], st)) + "%) · " +
+      ab.map(function (nm, k) { return esc(curto(nm)) + " " + brp(pv(b1, k)) + "%"; }).join(" × ") + " · " + difTxt(b1) + ".</p>";
+    var cab = "<th>UF</th><th>Seções até " + hh + "</th><th>Seções depois</th><th>% comp. até</th><th>% comp. depois</th>" +
+      ab.map(function (nm) { return "<th>" + esc(curto(nm)) + " até</th><th>" + esc(curto(nm)) + " depois</th>"; }).join("") +
+      "<th>Diferença até</th><th>Diferença depois</th>";
+    return resumo + '<div class="rola"><table class="ord medio" id="t-enc"><thead><tr>' + cab + "</tr></thead><tbody>" + corpo +
+      "</tbody></table></div>" + '<p class="cab">% dos candidatos sobre os votos válidos de cada grupo de urnas; % de ' +
+      "comparecimento sobre os aptos das seções do grupo." + (semTot ? " Seções sem horário de encerramento no boletim: " +
+      br(semTot) + " (fora das duas colunas)." : "") + "</p>";
+  }
+  function quadroEncerramento(m) {
+    var d = ENC.dados, t = "<h2 id=\"encerramento\">Votação pelo horário de encerramento das urnas (boletim de urna)</h2>";
+    if (!d) {
+      var falta = /404/.test(ENC.erro);
+      return t + '<p class="cab">' + (!ENC.erro ? "Carregando o boletim de urna..." : falta && CFG.turno === 2 ?
+        "O TSE ainda não publicou o boletim de urna do 2º turno (o do 1º turno saiu no dia seguinte à eleição). " +
+        'Este quadro aparece aqui assim que ele for publicado. <a href="../1turno/#encerramento">Ver o quadro do 1º turno</a>.' :
+        falta ? "Em preparação: o boletim de urna deste turno ainda está sendo processado." :
+        "<b>FALHA NA LEITURA</b> do boletim de urna (" + esc(ENC.erro) + ").") + "</p>";
+    }
+    return t + '<div class="enc-ctl so-tela"><label for="hora-enc">Urnas encerradas até</label> ' +
+      '<input type="time" id="hora-enc" step="60" value="' + esc(ENC.hora) + '"> <span>horário de Brasília</span></div>' +
+      '<p class="cab so-papel">Urnas encerradas até ' + esc(ENC.hora) + " (horário de Brasília).</p>" +
+      '<div id="enc-corpo">' + corpoEncerramento(m) + "</div>" +
+      '<p class="rod"><b>Como ler.</b> Fonte: boletim de urna oficial de cada seção (BU na Web, dados abertos do TSE, gerado em ' +
+      esc(d.gerado) + "). As urnas fecham às 17h de Brasília; as que encerram depois são as das seções que ainda tinham eleitores " +
+      "na fila nesse horário. A diferença entre os dois grupos mostra onde havia fila (estado, cidade, tamanho da seção) e, por si, " +
+      "não indica irregularidade. A urna marca a hora local: AC, AM, RO, RR, MT, MS e Fernando de Noronha foram convertidos para o " +
+      "horário de Brasília; no exterior conta-se a partir das 17h locais de cada país.</p>";
+  }
+  document.addEventListener("input", function (ev) {
+    if (!ev.target || ev.target.id !== "hora-enc" || !/^\d{1,2}:\d{2}/.test(ev.target.value || "")) return;
+    ENC.hora = ev.target.value.slice(0, 5);
+    try { sessionStorage.setItem("hora-enc", ENC.hora); } catch (e) {}
+    var c = document.getElementById("enc-corpo");
+    if (c && M && ENC.dados) { c.innerHTML = corpoEncerramento(M); aplica(); }
+  });
+
   // ---- comparação com o 1º turno (só na página do 2º turno; o 1º turno é resultado final, lido uma vez)
   var M1 = null, erroT1 = "";
   // ---- histórico publicado (evolucao.json, tirado do monitor local e republicado a cada 5 min durante a
@@ -1172,7 +1276,7 @@ if (typeof document !== "undefined") (function (N) {
       "<h2>Por estado</h2>" + legendaT1() + dicaCidades() + '<div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
-      (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") +
+      (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") + quadroEncerramento(m) +
       (CFG.presos ? '<h2>Votação em presídios e unidades de internação (presos provisórios)</h2><div id="presos-area">' +
         htmlPresos() + "</div>" : "") +
       (conc ? "" : '<h2>Projeção do resultado final por estado (ESTIMATIVA)</h2><div class="rola">' + tabelaProjecao(m) + "</div>") +
@@ -1635,7 +1739,9 @@ if (typeof document !== "undefined") (function (N) {
       var t = r.querySelector("table[id]");
       if (t && r.scrollLeft) rolagem[t.id] = r.scrollLeft;
     });
+    var foco = document.activeElement && document.activeElement.id === "hora-enc";
     desenha();
+    if (foco) { var he = document.getElementById("hora-enc"); if (he) he.focus(); }
     Object.keys(rolagem).forEach(function (id) {
       var t = document.getElementById(id);
       if (t && t.parentElement) t.parentElement.scrollLeft = rolagem[id];
@@ -1664,4 +1770,5 @@ if (typeof document !== "undefined") (function (N) {
   rodada();
   carregaTurno1();
   carregaEvolucao();
+  carregaEncerramento();
 })(NUCLEO);
