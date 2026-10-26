@@ -782,6 +782,12 @@ if (typeof document !== "undefined") (function (N) {
     var r = linhaT1(chave);
     return r ? '<br><span class="t1">' + brp(r.pct_cand[nm] || 0) + "%</span>" : "";
   }
+  // qualquer grandeza do 1º turno (aptos, comparecimento, abstenção, válidos, brancos, nulos...) em etiqueta cinza
+  function t1v(chave, campo, pct) {
+    var r = linhaT1(chave);
+    if (!r || r[campo] === undefined || r[campo] === null) return "";
+    return '<br><span class="t1">' + (pct ? brp(r[campo]) + "%" : br(r[campo])) + "</span>";
+  }
   // diferença de votos entre os dois no 1º turno, embaixo da diferença atual
   function t1Dif(chave, ab) {
     var r = linhaT1(chave);
@@ -805,8 +811,10 @@ if (typeof document !== "undefined") (function (N) {
     }).join("");
     return "<tr" + cls + '><td class="l">' + rot + "</td>" +
       tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.pct_eleit, brp(r.pct_eleit) + "%") +
-      tdN(r.te) + tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") +
-      tdN(r.tv) + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) + cand +
+      tdN(r.te, br(r.te) + t1v(chave, "te")) + tdN(r.c, br(r.c) + t1v(chave, "c")) +
+      tdN(r.pct_comp, brp(r.pct_comp) + "%" + t1v(chave, "pct_comp", 1)) + tdN(r.a, br(r.a) + t1v(chave, "a")) +
+      tdN(r.pct_abst, brp(r.pct_abst) + "%" + t1v(chave, "pct_abst", 1)) + tdN(r.tv, br(r.tv) + t1v(chave, "tv")) +
+      tdN(r.vv, br(r.vv) + t1v(chave, "vv")) + tdN(r.vb, br(r.vb) + t1v(chave, "vb")) + tdN(r.tvn, br(r.tvn) + t1v(chave, "tvn")) + cand +
       tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
       '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" + tdN(r.por_apurar) +
       tdN(r.por_vir, null, r.base_taxa === "BRASIL" ? "<br>(taxa BR)" : "") +
@@ -814,7 +822,7 @@ if (typeof document !== "undefined") (function (N) {
   }
   function tabelaUfs(m) {
     var ab = par(m);
-    var larg = [5.5, 5.5, 3.5, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 3.5, 3.5, 6, 6, 7.5, 4, 5.5, 5.5, 5, 3.5];  // soma 100
+    var larg = [5.5, 5, 3.5, 5.5, 5.5, 4, 5.5, 4, 5.5, 5.5, 4, 4, 6, 6, 7.5, 4, 5.5, 5.5, 4.5, 3.5];  // soma 100
     var corpo = N.UFS.map(function (uf) {
       return linhaUf(ufLink(uf), m.linhas[uf], m.leitura[uf], m, "", uf);
     }).join("") + linhaUf(ufLink("zz", "EXTERIOR"), m.linhas.zz, m.leitura.zz, m, "fixa", "zz") +
@@ -882,8 +890,10 @@ if (typeof document !== "undefined") (function (N) {
       var na = x.tot ? N.UFS.filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === ab[0]; }).length : lidera(r, ab[0]);
       var nb = x.tot ? N.UFS.filter(function (uf) { return m.linhas[uf] && m.linhas[uf].lider === ab[1]; }).length : lidera(r, ab[1]);
       return "<tr" + cls + ">" + nome + estados +
-        tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.te) +
-        tdN(r.c) + tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) +
+        tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%", "", " qb") + tdN(r.te, br(r.te) + t1v(chave, "te")) +
+        tdN(r.c, br(r.c) + t1v(chave, "c")) + tdN(r.pct_comp, brp(r.pct_comp) + "%" + t1v(chave, "pct_comp", 1)) +
+        tdN(r.a, br(r.a) + t1v(chave, "a")) + tdN(r.pct_abst, brp(r.pct_abst) + "%" + t1v(chave, "pct_abst", 1)) +
+        tdN(r.vv, br(r.vv) + t1v(chave, "vv")) +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
         tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
         '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
