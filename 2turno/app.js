@@ -1455,6 +1455,12 @@ if (typeof document !== "undefined") (function (N) {
       var dif1 = x && x.votos ? '<br><span class="t1">' + txtDif(soDois(x.votos, ab), ab[0], ab[1]) + "</span>" : "";
       return tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + dif1, "", classeLider(soDois(r.votos, ab), r.numero));
     }
+    // aptos, comparecimento, abstenção, válidos, brancos e nulos do município no 1º turno (municipios_t1/{uf}.json, "x")
+    function t1mv(cd, campo, pct) {
+      var x = CFG.turno === 2 && CID.t1 && CID.t1[cd] && CID.t1[cd].x;
+      if (!x || x[campo] === undefined) return "";
+      return '<br><span class="t1">' + (pct ? brp(x[campo]) + "%" : br(x[campo])) + "</span>";
+    }
     function t1m(cd, k) {
       var x = CFG.turno === 2 && CID.t1 && CID.t1[cd];
       return x && x[k] !== undefined ? '<br><span class="t1">' + brp(x[k]) + "%</span>" : "";
@@ -1473,8 +1479,11 @@ if (typeof document !== "undefined") (function (N) {
       var nm = '<td class="l" data-nome="' + esc(semAcento(x.nome)) + '">' + esc(x.nome) + "</td>";
       if (!x.r) return "<tr>" + nm + '<td colspan="15" class="l">' + (x.falha ? situ(x) : "carregando...") + "</td></tr>";
       var r = x.r;
-      return "<tr>" + nm + tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.te) + tdN(r.c) +
-        tdN(r.pct_comp, brp(r.pct_comp) + "%") + tdN(r.a) + tdN(r.pct_abst, brp(r.pct_abst) + "%") + tdN(r.vv) + tdN(r.vb) + tdN(r.tvn) +
+      var t = function (campo, pct) { return t1mv(x.cd, campo, pct); };
+      return "<tr>" + nm + tdN(r.pct_sec, br(r.st) + " de " + br(r.ts) + "<br>" + brp(r.pct_sec) + "%") + tdN(r.te, br(r.te) + t("te")) +
+        tdN(r.c, br(r.c) + t("c")) + tdN(r.pct_comp, brp(r.pct_comp) + "%" + t("pct_comp", 1)) + tdN(r.a, br(r.a) + t("a")) +
+        tdN(r.pct_abst, brp(r.pct_abst) + "%" + t("pct_abst", 1)) + tdN(r.vv, br(r.vv) + t("vv")) + tdN(r.vb, br(r.vb) + t("vb")) +
+        tdN(r.tvn, br(r.tvn) + t("tvn")) +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1m(x.cd, k)); }).join("") +
         celDif(r, x.cd) + '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="n">' + esc(r.hg) + '</td><td class="l">' + situ(x) + "</td></tr>";
