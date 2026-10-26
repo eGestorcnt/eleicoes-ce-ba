@@ -629,7 +629,9 @@ if (typeof document !== "undefined") (function (N) {
     }
     var sx = passo(x1 - x0, 4), casas = sx < 0.1 ? 2 : (sx < 1 ? 1 : 0);
     for (var u = Math.ceil(x0 / sx - 1e-9) * sx; u <= x1 + 1e-9; u += sx) {
-      g += '<text class="evo-eixo" x="' + X(u).toFixed(1) + '" y="' + (T + h + 16) + '" text-anchor="middle">' +
+      // marca colada no fim do eixo alinha pela direita, para não encostar no rótulo "das seções"
+      g += '<text class="evo-eixo" x="' + X(u).toFixed(1) + '" y="' + (T + h + 16) + '" text-anchor="' +
+        (L + w - X(u) < 24 ? "end" : "middle") + '">' +
         u.toFixed(casas).replace(".", ",") + "%</text>";
     }
     g += '<text class="evo-eixo" x="' + (L + w) + '" y="' + (T + h + 16) + '" text-anchor="start" dx="6">das seções</text>';
@@ -789,15 +791,21 @@ if (typeof document !== "undefined") (function (N) {
     return '<br><span class="t1">' + (pct ? brp(r[campo]) + "%" : br(r[campo])) + "</span>";
   }
   // diferença de votos entre os dois no 1º turno, embaixo da diferença atual
-  function t1Dif(chave, ab) {
+  function t1Dif(chave, ab, votos) {
     var r = linhaT1(chave);
-    return r ? '<br><span class="t1">' + txtDif(soDois(r.votos, ab), ab[0], ab[1]) + "</span>" : "";
+    return r ? '<br><span class="t1">' + txtDif(soDois(r.votos, ab), ab[0], ab[1]) + "</span>" + varDif(votos, r.votos, ab) : "";
+  }
+  // quanto a vantagem mudou do 1º para o 2º turno e a favor de quem: (A − B no 2º) − (A − B no 1º)
+  function varDif(v2, v1, ab) {
+    if (!v2 || !v1) return "";
+    var d = ((v2[ab[0]] || 0) - (v2[ab[1]] || 0)) - ((v1[ab[0]] || 0) - (v1[ab[1]] || 0));
+    return '<span class="t1var">var. ' + (d ? esc(curto(d > 0 ? ab[0] : ab[1])) + " +" + br(Math.abs(d)) : "0") + "</span>";
   }
   function legendaT1(ok) {
     if (ok === undefined) ok = !!M1;
     return CFG.turno === 2 && ok ? '<p class="cab legenda-t1"><span class="so-tela">Na etiqueta cinza, abaixo de cada percentual: ' +
       'o resultado do 1º turno (04/10).</span><span class="so-papel">Marcado "1ºT", abaixo de cada percentual: o resultado do ' +
-      "1º turno (04/10).</span></p>" : "";
+      "1º turno (04/10).</span> Na Diferença, \"var.\" é quanto a vantagem mudou do 1º para o 2º turno e a favor de quem.</p>" : "";
   }
   function dicaCidades() {
     return '<p class="cab dica so-tela">Clique na sigla ou na bandeira de um estado para abrir o relatório por município.</p>';
@@ -815,7 +823,7 @@ if (typeof document !== "undefined") (function (N) {
       tdN(r.pct_comp, brp(r.pct_comp) + "%" + t1v(chave, "pct_comp", 1)) + tdN(r.a, br(r.a) + t1v(chave, "a")) +
       tdN(r.pct_abst, brp(r.pct_abst) + "%" + t1v(chave, "pct_abst", 1)) + tdN(r.tv, br(r.tv) + t1v(chave, "tv")) +
       tdN(r.vv, br(r.vv) + t1v(chave, "vv")) + tdN(r.vb, br(r.vb) + t1v(chave, "vb")) + tdN(r.tvn, br(r.tvn) + t1v(chave, "tvn")) + cand +
-      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
+      tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab, r.votos), "", classeLider(soDois(r.votos, ab), r.numero)) +
       '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" + tdN(r.por_apurar) +
       tdN(r.por_vir, null, r.base_taxa === "BRASIL" ? "<br>(taxa BR)" : "") +
       '<td class="n">' + esc(r.dg.slice(0, 5)) + "<br>" + esc(r.hg) + '</td><td class="l">' + situacaoLeitura(info) + "</td></tr>";
@@ -841,7 +849,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!r) return "<tr" + cls + '><td class="l">' + rot + '</td><td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + '><td class="l">' + rot + "</td>" + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
         ab.map(function (nm) { return tdN(r.pct_cand[nm] || 0, brp(r.pct_cand[nm] || 0) + "%" + t1(chave, nm)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "",
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab, r.votos), "",
             classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }
     return '<table class="ord" id="t-cel"><colgroup><col style="width:17%"><col style="width:16%"><col style="width:15%">' +
@@ -876,7 +884,7 @@ if (typeof document !== "undefined") (function (N) {
       if (!r) return "<tr" + cls + ">" + nome + '<td colspan="4" class="l">FALHA NA LEITURA</td></tr>';
       return "<tr" + cls + ">" + nome + tdN(r.pct_sec, brp(r.pct_sec) + "%") +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab, r.votos), "", classeLider(soDois(r.votos, ab), r.numero)) + "</tr>";
     }).join("");
     var larga = lista.map(function (x, i) {
       var cls = x.tot ? ' class="tot"' : "", r = x.r, chave = x.tot ? "br" : "reg:" + i;
@@ -895,7 +903,7 @@ if (typeof document !== "undefined") (function (N) {
         tdN(r.a, br(r.a) + t1v(chave, "a")) + tdN(r.pct_abst, brp(r.pct_abst) + "%" + t1v(chave, "pct_abst", 1)) +
         tdN(r.vv, br(r.vv) + t1v(chave, "vv")) +
         ab.map(function (k) { return tdN(r.pct_cand[k] || 0, br(r.votos[k] || 0) + "<br>" + brp(r.pct_cand[k] || 0) + "%" + t1(chave, k)); }).join("") +
-        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab), "", classeLider(soDois(r.votos, ab), r.numero)) +
+        tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + t1Dif(chave, ab, r.votos), "", classeLider(soDois(r.votos, ab), r.numero)) +
         '<td class="l">' + marca(r, r.lider) + esc(nomeLider(r.lider)) + "</td>" +
         '<td class="l">' + (x.nome === "Exterior" ? "—" : esc(curto(ab[0])) + " " + na + " · " + esc(curto(ab[1])) + " " + nb) + "</td>" +
         '<td class="l">' + (x.tot ? "OK" : leitura(x)) + "</td></tr>";
@@ -1113,7 +1121,7 @@ if (typeof document !== "undefined") (function (N) {
     var cab = "<th>UF</th><th>Seções até " + hh + "</th><th>Seções depois</th><th>% comp. até</th><th>% comp. depois</th>" +
       ab.map(function (nm) { return "<th>" + esc(curto(nm)) + " até</th><th>" + esc(curto(nm)) + " depois</th>"; }).join("") +
       "<th>Diferença até</th><th>Diferença depois</th>";
-    return resumo + '<div class="rola"><table class="ord medio" id="t-enc"><thead><tr>' + cab + "</tr></thead><tbody>" + corpo +
+    return resumo + '<div class="rola alta"><table class="ord medio" id="t-enc"><thead><tr>' + cab + "</tr></thead><tbody>" + corpo +
       "</tbody></table></div>" + '<p class="cab">% dos candidatos sobre os votos válidos de cada grupo de urnas; % de ' +
       "comparecimento sobre os aptos das seções do grupo." + (semTot ? " Seções sem horário de encerramento no boletim: " +
       br(semTot) + " (fora das duas colunas)." : "") + "</p>";
@@ -1273,9 +1281,9 @@ if (typeof document !== "undefined") (function (N) {
       (m.ordem.length > 2 ? '<h2>Todos os candidatos</h2><div class="rola">' + rankingCandidatos(m) + "</div>" : "") +
       '<h2 class="so-papel">Brasil</h2><div class="rola so-papel">' + resumoPapel(m) + "</div>" +
       "<h2>Por região</h2>" + avisoDivergencia(m) + legendaT1() + dicaCidades() + quadroRegioes(m) +
-      "<h2>Por estado</h2>" + legendaT1() + dicaCidades() + '<div class="so-celular so-tela"><div class="rola">' + tabelaCelular(m) + "</div>" +
+      "<h2>Por estado</h2>" + legendaT1() + dicaCidades() + '<div class="so-celular so-tela"><div class="rola alta">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
-      '<div class="rola so-largo">' + tabelaUfs(m) + "</div>" +
+      '<div class="rola alta so-largo">' + tabelaUfs(m) + "</div>" +
       (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") + quadroEncerramento(m) +
       (CFG.presos ? '<h2>Votação em presídios e unidades de internação (presos provisórios)</h2><div id="presos-area">' +
         htmlPresos() + "</div>" : "") +
@@ -1452,7 +1460,8 @@ if (typeof document !== "undefined") (function (N) {
     });
     function celDif(r, cd) {
       var x = CFG.turno === 2 && CID.t1 && CID.t1[cd];
-      var dif1 = x && x.votos ? '<br><span class="t1">' + txtDif(soDois(x.votos, ab), ab[0], ab[1]) + "</span>" : "";
+      var dif1 = x && x.votos ? '<br><span class="t1">' + txtDif(soDois(x.votos, ab), ab[0], ab[1]) + "</span>" +
+        varDif(r.votos, x.votos, ab) : "";
       return tdN((r.votos[ab[0]] || 0) - (r.votos[ab[1]] || 0), txtDif(r.votos, ab[0], ab[1]) + dif1, "", classeLider(soDois(r.votos, ab), r.numero));
     }
     // aptos, comparecimento, abstenção, válidos, brancos e nulos do município no 1º turno (municipios_t1/{uf}.json, "x")
@@ -1492,12 +1501,12 @@ if (typeof document !== "undefined") (function (N) {
       ab.map(function (k) { return esc(curto(k)) + " " + brp(ruf.pct_cand[k] || 0) + "%"; }).join(" × ") + " · " +
       txtDif(ruf.votos, ab[0], ab[1]) + " · líder " + esc(nomeLider(ruf.lider)) + "</p>" : "";
     corpo.innerHTML = resumo + '<section class="so-tela" id="cid-evo-area"></section>' + legendaT1(!!CID.t1) +
-      '<div class="so-celular so-tela"><div class="rola"><table class="ord" id="t-mun-cel"><colgroup><col style="width:30%">' +
+      '<div class="so-celular so-tela"><div class="rola alta"><table class="ord" id="t-mun-cel"><colgroup><col style="width:30%">' +
       '<col style="width:13%"><col style="width:15%"><col style="width:15%"><col style="width:27%"></colgroup><thead><tr>' +
       "<th>Município</th><th>Apurado</th><th>" + esc(curto(ab[0])) + "</th><th>" + esc(curto(ab[1])) + "</th><th>Diferença</th>" +
       "</tr></thead><tbody>" + cel + "</tbody></table></div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
-      '<div class="rola so-largo"><table class="ord" id="t-mun"><colgroup><col style="width:14%"><col style="width:7%">' +
+      '<div class="rola alta so-largo"><table class="ord" id="t-mun"><colgroup><col style="width:14%"><col style="width:7%">' +
       '<col style="width:6%"><col style="width:6%"><col style="width:5%"><col style="width:6%"><col style="width:5%"><col style="width:6%">' +
       '<col style="width:5%"><col style="width:5%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:5%">' +
       '<col style="width:5%"><col style="width:4%"></colgroup><thead><tr><th>Município</th><th>Seções totalizadas</th><th>Aptos</th>' +
@@ -1746,14 +1755,14 @@ if (typeof document !== "undefined") (function (N) {
     var rolagem = {};
     document.querySelectorAll("#conteudo .rola").forEach(function (r) {
       var t = r.querySelector("table[id]");
-      if (t && r.scrollLeft) rolagem[t.id] = r.scrollLeft;
+      if (t && (r.scrollLeft || r.scrollTop)) rolagem[t.id] = [r.scrollLeft, r.scrollTop];
     });
     var foco = document.activeElement && document.activeElement.id === "hora-enc";
     desenha();
     if (foco) { var he = document.getElementById("hora-enc"); if (he) he.focus(); }
     Object.keys(rolagem).forEach(function (id) {
       var t = document.getElementById(id);
-      if (t && t.parentElement) t.parentElement.scrollLeft = rolagem[id];
+      if (t && t.parentElement) { t.parentElement.scrollLeft = rolagem[id][0]; t.parentElement.scrollTop = rolagem[id][1]; }
     });
   }
   function rodada() {

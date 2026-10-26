@@ -111,6 +111,7 @@ body.modo-pdf{margin:0;font-size:7pt}
  .proj b{font-weight:700}
  .proj2{border-left-color:#64748B;margin-top:10px}
  /* 1º turno embaixo do % atual: etiqueta cinza (letra #374151 sobre #E5E7EB: contraste 8,33) */
+ .t1var{display:block;margin-top:2px;font-size:10.5px;font-weight:400;color:#475569;white-space:nowrap}
  .t1{display:inline-block;margin-top:3px;padding:0 3px;border-radius:4px;background:#E5E7EB;color:#374151;font-size:10.5px;font-weight:400;line-height:1.5}
  .contato{display:flex;gap:16px;align-items:center;margin-top:16px}
  .contato .qr{width:120px;height:120px;flex:none;border:1px solid #E2E8F0;border-radius:8px}
@@ -132,6 +133,10 @@ body.modo-pdf{margin:0;font-size:7pt}
  /* primeira coluna (UF) congelada ao rolar a tabela para o lado */
  .rola td:first-child,.rola th:first-child{position:sticky;left:0;z-index:1;background:#fff;box-shadow:1px 0 0 #E2E8F0}
  .rola th:first-child{background:#F8FAFC;z-index:2}
+ /* tabelas longas: a moldura tem a altura da tela e rola nos dois sentidos; a linha dos títulos fica congelada */
+ .rola.alta{max-height:calc(100vh - 90px);overflow:auto}
+ .rola.alta thead th{position:sticky;top:0;z-index:2;background:#F8FAFC;box-shadow:0 1px 0 #CBD5E1}
+ .rola.alta thead th:first-child{z-index:3}
  .rola tbody tr:hover td:first-child{background:#F8FAFC}
  tr.tot td{background:#E2E8F0 !important;border-top:2px solid #0F172A}
  tr.fixa td{background:#fff !important;font-style:normal;color:#334155}
@@ -179,4 +184,4 @@ body.modo-pdf{margin:0;font-size:7pt}
  }
 }
 
-.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "pleito": "3221", "turno": 2, "eleicao_1t": "6257", "data_2t": "", "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 2º TURNO · 25/10/2026", "titulo": "Eleição para Presidente da República — 2º turno — 25/10/2026", "arquivo": "monitor_2turno_presidente", "pagina": "Apuração 2º turno — Presidente 2026", "data": "25/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "contato": {"texto": "Converse com a Gestor CNT no WhatsApp", "url": "https://wa.me/message/TKPLP4LXLRCIK1", "qr": "whatsapp_gestorcnt.svg"}, "alertar": [], "patrocinio": null, "presos": false}</script><script src="app.js?v=1793004937"></script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c04fa4b8421a491da32d88c1f7cea12e"}'></script></body></html>
+.carregando{padding:40px 16px;font-size:15px}</style></head><body><div id="conteudo"><p class="carregando">Lendo os resultados oficiais do TSE...</p></div><div id="cidades"></div><noscript><p class="carregando">Esta página precisa de JavaScript para ler os resultados do TSE.</p></noscript><script type="application/json" id="config">{"eleicao": "6258", "pleito": "3221", "turno": 2, "eleicao_1t": "6257", "data_2t": "", "rotulo": "ELEIÇÃO PRESIDENCIAL 2026 · 2º TURNO · 25/10/2026", "titulo": "Eleição para Presidente da República — 2º turno — 25/10/2026", "arquivo": "monitor_2turno_presidente", "pagina": "Apuração 2º turno — Presidente 2026", "data": "25/10/2026", "nome_uf": {"ac": "Acre", "al": "Alagoas", "am": "Amazonas", "ap": "Amapá", "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo", "go": "Goiás", "ma": "Maranhão", "mg": "Minas Gerais", "ms": "Mato Grosso do Sul", "mt": "Mato Grosso", "pa": "Pará", "pb": "Paraíba", "pe": "Pernambuco", "pi": "Piauí", "pr": "Paraná", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte", "ro": "Rondônia", "rr": "Roraima", "rs": "Rio Grande do Sul", "sc": "Santa Catarina", "se": "Sergipe", "sp": "São Paulo", "to": "Tocantins"}, "parada_min": 5, "contato": {"texto": "Converse com a Gestor CNT no WhatsApp", "url": "https://wa.me/message/TKPLP4LXLRCIK1", "qr": "whatsapp_gestorcnt.svg"}, "alertar": [], "patrocinio": null, "presos": false}</script><script src="app.js?v=1793006026"></script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c04fa4b8421a491da32d88c1f7cea12e"}'></script></body></html>
