@@ -1217,8 +1217,8 @@ if (typeof document !== "undefined") (function (N) {
       '<input type="time" id="hora-enc" step="60" value="' + esc(ENC.hora) + '"> <span>horário de Brasília</span></div>' +
       '<p class="cab so-papel">Urnas encerradas até ' + esc(ENC.hora) + " (horário de Brasília).</p>" +
       '<div id="enc-corpo">' + corpoEncerramento(m) + "</div>" +
-      '<p class="rod"><b>Como ler.</b> Fonte: boletim de urna oficial de cada seção (BU na Web, dados abertos do TSE, gerado em ' +
-      esc(d.gerado) + "). As urnas fecham às 17h de Brasília; as que encerram depois são as das seções que ainda tinham eleitores " +
+      '<p class="rod"><b>Como ler.</b> Fonte: boletim de urna oficial de cada seção (' +
+      esc(d.origem || "BU na Web, dados abertos do TSE") + ", gerado em " + esc(d.gerado) + "). As urnas fecham às 17h de Brasília; as que encerram depois são as das seções que ainda tinham eleitores " +
       "na fila nesse horário. A diferença entre os dois grupos mostra onde havia fila (estado, cidade, tamanho da seção) e, por si, " +
       "não indica irregularidade. A urna marca a hora local: AC, AM, RO, RR, MT, MS e Fernando de Noronha foram convertidos para o " +
       "horário de Brasília; no exterior conta-se a partir das 17h locais de cada país.</p>";
@@ -1229,6 +1229,75 @@ if (typeof document !== "undefined") (function (N) {
     try { sessionStorage.setItem("hora-enc", ENC.hora); } catch (e) {}
     var c = document.getElementById("enc-corpo");
     if (c && M && ENC.dados) { c.innerHTML = corpoEncerramento(M); aplica(); }
+  });
+
+  // ---- votos para Presidente confirmados a partir de um horário, contados nos LOGS das urnas (logs.json, gerado
+  // por logs_urna.py do pacote oficial "arquivos transmitidos para totalização"). Linha do arquivo: [minuto depois
+  // das 17h de Brasília, votos confirmados naquele minuto, seções cujo ÚLTIMO voto foi naquele minuto].
+  // Sem logs.json o quadro não aparece.
+  var LOGS = { dados: null, hora: "17:00" };
+  try { LOGS.hora = sessionStorage.getItem("hora-log") || "17:00"; } catch (e) {}
+  function carregaLogs() {
+    if (CFG.turno !== 2) return;
+    fetch("logs.json?ts=" + Date.now()).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) { LOGS.dados = j; if (M) desenhaPreservando(); }, function () {});
+  }
+  function limiteLog() {
+    var h = /^(\d{1,2}):(\d{2})/.exec(LOGS.hora || "");
+    return h ? (+h[1]) * 60 + (+h[2]) - 17 * 60 : 0;
+  }
+  // a partir do minuto digitado (inclusive): [votos, seções com voto a partir dele]
+  function somaLog(linhas, limite) {
+    var v = 0, s = 0;
+    (linhas || []).forEach(function (l) { if (l[0] >= limite) { v += l[1]; s += l[2]; } });
+    return [v, s];
+  }
+  function corpoLogs() {
+    var d = LOGS.dados, lim = limiteLog(), hh = esc(LOGS.hora), tv = 0, ts = 0, tt = 0;
+    function linha(rot, uf, classe) {
+      var u = d.uf[uf];
+      if (!u) return "";
+      var g = somaLog(u.m, lim);
+      tv += g[0]; ts += g[1]; tt += u.votos;
+      return celula(rot, g, u.votos, u.secoes - u.sem_log, classe);
+    }
+    function celula(rot, g, total, secoes, classe) {
+      return "<tr" + (classe ? ' class="' + classe + '"' : "") + '><td class="l">' + rot + "</td>" + tdN(g[0], br(g[0])) +
+        tdN(N.pct(g[0], total), brp(N.pct(g[0], total)) + "%") + tdN(g[1], br(g[1])) +
+        tdN(N.pct(g[1], secoes), brp(N.pct(g[1], secoes)) + "%") + "</tr>";
+    }
+    var corpo = N.UFS.map(function (uf) { return linha(ufLink(uf), uf); }).join("") + linha(ufLink("zz", "EXTERIOR"), "zz", "fixa");
+    var secTot = Object.keys(d.uf).reduce(function (s, uf) { return s + d.uf[uf].secoes - d.uf[uf].sem_log; }, 0);
+    corpo += celula(band("br") + "TOTAL BRASIL", [tv, ts], tt, secTot, "tot");
+    return '<p class="cab enc-resumo"><b>A partir das ' + hh + "</b> (horário de Brasília): " + br(tv) + " votos para Presidente " +
+      "confirmados (" + brp(N.pct(tv, tt)) + "% dos votos registrados nos logs), em " + br(ts) + " seções (" + brp(N.pct(ts, secTot)) +
+      "% das seções).</p>" + '<div class="rola alta"><table class="ord medio" id="t-log"><colgroup><col style="width:20%">' +
+      '<col style="width:22%"><col style="width:18%"><col style="width:22%"><col style="width:18%"></colgroup><thead><tr>' +
+      "<th>UF</th><th>Votos a partir das " + hh + "</th><th>% dos votos da UF</th><th>Seções com voto a partir das " + hh +
+      "</th><th>% das seções da UF</th></tr></thead><tbody>" + corpo + "</tbody></table></div>";
+  }
+  function quadroLogs() {
+    var d = LOGS.dados;
+    if (CFG.turno !== 2 || !d) return "";
+    return '<h2 id="logs">Votos para Presidente confirmados a partir de um horário (logs das urnas)</h2>' +
+      '<div class="enc-ctl so-tela"><label for="hora-log">Votos confirmados a partir das</label> ' +
+      '<input type="time" id="hora-log" step="60" value="' + esc(LOGS.hora) + '"> <span>horário de Brasília</span></div>' +
+      '<p class="cab so-papel">Votos confirmados a partir das ' + esc(LOGS.hora) + " (horário de Brasília).</p>" +
+      '<div id="log-corpo">' + corpoLogs() + "</div>" +
+      '<p class="rod"><b>Como ler.</b> Fonte: log de cada urna (pacote oficial "arquivos transmitidos para totalização", dados ' +
+      "abertos do TSE, processado em " + esc(d.gerado) + "): cada voto deixa no log a linha \"Voto confirmado para [Presidente]\" " +
+      "com a hora. A urna marca a hora local; o fuso de cada município sai da abertura das urnas (8h de Brasília). A votação " +
+      "termina às 17h para quem chega depois, mas quem já está na fila nesse horário vota: os votos depois das 17h são desses " +
+      "eleitores e, por si, não indicam irregularidade. Votos registrados nos logs: " + br(d.votos_presidente_logs) +
+      "; comparecimento oficial: " + br(d.comparecimento_tse) + " (urna de contingência ou voto em cédula podem não deixar " +
+      "a linha no log).</p>";
+  }
+  document.addEventListener("input", function (ev) {
+    if (!ev.target || ev.target.id !== "hora-log" || !/^\d{1,2}:\d{2}/.test(ev.target.value || "")) return;
+    LOGS.hora = ev.target.value.slice(0, 5);
+    try { sessionStorage.setItem("hora-log", LOGS.hora); } catch (e) {}
+    var c = document.getElementById("log-corpo");
+    if (c && LOGS.dados) { c.innerHTML = corpoLogs(); aplica(); }
   });
 
   // ---- comparação com o 1º turno (só na página do 2º turno; o 1º turno é resultado final, lido uma vez)
@@ -1361,7 +1430,7 @@ if (typeof document !== "undefined") (function (N) {
       "<h2>Por estado</h2>" + legendaT1() + dicaCidades() + '<div class="so-celular so-tela"><div class="rola alta">' + tabelaCelular(m) + "</div>" +
       '<button type="button" class="botao-completa" data-acao="completa">Ver tabela completa</button></div>' +
       '<div class="rola alta so-largo">' + tabelaUfs(m) + "</div>" +
-      (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") + quadroEncerramento(m) +
+      (CFG.turno === 2 ? "<h2>Comparação com o 1º turno</h2>" + quadroComparacao(m) : "") + quadroEncerramento(m) + quadroLogs() +
       (CFG.presos ? '<h2>Votação em presídios e unidades de internação (presos provisórios)</h2><div id="presos-area">' +
         htmlPresos() + "</div>" : "") +
       (conc ? "" : '<h2>Projeção do resultado final por estado (ESTIMATIVA)</h2><div class="rola">' + tabelaProjecao(m) + "</div>") +
@@ -1834,9 +1903,9 @@ if (typeof document !== "undefined") (function (N) {
       var t = r.querySelector("table[id]");
       if (t && (r.scrollLeft || r.scrollTop)) rolagem[t.id] = [r.scrollLeft, r.scrollTop];
     });
-    var foco = document.activeElement && document.activeElement.id === "hora-enc";
+    var foco = document.activeElement && /^hora-(enc|log)$/.test(document.activeElement.id) ? document.activeElement.id : "";
     desenha();
-    if (foco) { var he = document.getElementById("hora-enc"); if (he) he.focus(); }
+    if (foco) { var he = document.getElementById(foco); if (he) he.focus(); }
     Object.keys(rolagem).forEach(function (id) {
       var t = document.getElementById(id);
       if (t && t.parentElement) { t.parentElement.scrollLeft = rolagem[id][0]; t.parentElement.scrollTop = rolagem[id][1]; }
@@ -1866,4 +1935,5 @@ if (typeof document !== "undefined") (function (N) {
   carregaTurno1();
   carregaEvolucao();
   carregaEncerramento();
+  carregaLogs();
 })(NUCLEO);
